@@ -79,6 +79,7 @@ module riscv_core
   input  logic                         instr_rvalid_i,
   output logic                  [31:0] instr_addr_o,
   input  logic [INSTR_RDATA_WIDTH-1:0] instr_rdata_i,
+  input  logic                   [3:0] instr_rtag_i,
 
   // Data memory interface
   output logic        data_req_o,
@@ -88,7 +89,9 @@ module riscv_core
   output logic [3:0]  data_be_o,
   output logic [31:0] data_addr_o,
   output logic [31:0] data_wdata_o,
+  output logic [ 3:0] data_wtag_o,
   input  logic [31:0] data_rdata_i,
+  input  logic [ 3:0] data_rtag_i,
 
   // apu-interconnect
   // handshake signals
@@ -342,7 +345,9 @@ module riscv_core
   logic                             instr_gnt_pmp;
   logic [31:0]                      instr_addr_pmp;
   logic                             instr_err_pmp;
-
+  
+  // hardwire write tag bit
+  assign data_wtag_o = 4'b0000;
 
   //Simchecker signal
   logic is_interrupt;
