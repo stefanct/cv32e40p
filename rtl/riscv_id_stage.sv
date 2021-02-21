@@ -110,8 +110,11 @@ module riscv_id_stage
     output logic [31:0] pc_ex_o,
 
     output logic [31:0] alu_operand_a_ex_o,
+    output logic        alu_operand_a_tag_ex_o,
     output logic [31:0] alu_operand_b_ex_o,
+    output logic        alu_operand_b_tag_ex_o,
     output logic [31:0] alu_operand_c_ex_o,
+    output logic        alu_operand_c_tag_ex_o,
     output logic [ 4:0] bmask_a_ex_o,
     output logic [ 4:0] bmask_b_ex_o,
     output logic [ 1:0] imm_vec_ext_ex_o,
@@ -134,16 +137,22 @@ module riscv_id_stage
     // MUL
     output logic [ 2:0] mult_operator_ex_o,
     output logic [31:0] mult_operand_a_ex_o,
+    output logic        mult_operand_a_tag_ex_o,
     output logic [31:0] mult_operand_b_ex_o,
+    output logic        mult_operand_b_tag_ex_o,
     output logic [31:0] mult_operand_c_ex_o,
+    output logic        mult_operand_c_tag_ex_o,
     output logic        mult_en_ex_o,
     output logic        mult_sel_subword_ex_o,
     output logic [ 1:0] mult_signed_mode_ex_o,
     output logic [ 4:0] mult_imm_ex_o,
 
     output logic [31:0] mult_dot_op_a_ex_o,
+    output logic        mult_dot_op_a_tag_ex_o,
     output logic [31:0] mult_dot_op_b_ex_o,
+    output logic        mult_dot_op_b_tag_ex_o,
     output logic [31:0] mult_dot_op_c_ex_o,
+    output logic        mult_dot_op_c_tag_ex_o,
     output logic [ 1:0] mult_dot_signed_ex_o,
     output logic        mult_is_clpx_ex_o,
     output logic [ 1:0] mult_clpx_shift_ex_o,
@@ -231,10 +240,12 @@ module riscv_id_stage
     input  logic [5:0]  regfile_waddr_wb_i,
     input  logic        regfile_we_wb_i,
     input  logic [31:0] regfile_wdata_wb_i, // From wb_stage: selects data from data memory, ex_stage result and sp rdata
+    input  logic        regfile_wtag_wb_i,
 
     input  logic [5:0]  regfile_alu_waddr_fw_i,
     input  logic        regfile_alu_we_fw_i,
     input  logic [31:0] regfile_alu_wdata_fw_i,
+    input  logic        regfile_alu_wtag_fw_i,
 
     // from ALU
     input  logic        mult_multicycle_i,    // when we need multiple cycles in the multiplier and use op c as storage
@@ -302,6 +313,7 @@ module riscv_id_stage
   logic [31:0] imm_b;       // contains the immediate for operand b
 
   logic [31:0] jump_target;       // calculated jump target (-> EX -> IF)
+  logic        jump_target_tag;
 
 
 
@@ -327,8 +339,11 @@ module riscv_id_stage
   logic        regfile_alu_we_id, regfile_alu_we_dec_id;
 
   logic [31:0] regfile_data_ra_id;
+  logic        regfile_tag_ra_id;
   logic [31:0] regfile_data_rb_id;
+  logic        regfile_tag_rb_id;
   logic [31:0] regfile_data_rc_id;
+  logic        regfile_tag_rc_id;
 
   // ALU Control
   logic        alu_en;
@@ -414,13 +429,21 @@ module riscv_id_stage
   logic [31:0] operand_a_fw_id;
   logic [31:0] operand_b_fw_id;
   logic [31:0] operand_c_fw_id;
+  logic        operand_a_tag_fw_id;
+  logic        operand_b_tag_fw_id;
+  logic        operand_c_tag_fw_id;
 
   logic [31:0] operand_b, operand_b_vec;
+  logic        operand_b_tag;
   logic [31:0] operand_c, operand_c_vec;
+  logic        operand_c_tag;
 
   logic [31:0] alu_operand_a;
   logic [31:0] alu_operand_b;
   logic [31:0] alu_operand_c;
+  logic        alu_operand_a_tag;
+  logic        alu_operand_b_tag;
+  logic        alu_operand_c_tag;
 
   // Immediates for ID
   logic [0:0]  bmask_a_mux;
@@ -614,6 +637,15 @@ module riscv_id_stage
     endcase
   end
 
+  always_comb begin : jump_target_tag_mux
+    unique case (jump_target_mux_sel)
+      JT_JAL:  jump_target_tag = 1b'0;
+      JT_COND: jump_target_tag = 1b'0;
+      JT_JALR: jump_target_tag = regfile_tag_ra_id;
+      default: jump_target_tag = regfile_tag_ra_id;
+    endcase
+  end
+
   assign jump_target_o = jump_target;
 
 
@@ -637,6 +669,17 @@ module riscv_id_stage
       default:           alu_operand_a = operand_a_fw_id;
     endcase; // case (alu_op_a_mux_sel)
   end
+  
+  always_comb begin : alu_operand_a_tag_mux
+    case (alu_op_a_mux_sel)
+      OP_A_REGA_OR_FWD:  alu_operand_a_tag = operand_a_tag_fw_id;
+      OP_A_REGB_OR_FWD:  alu_operand_a_tag = operand_b_tag_fw_id;
+      OP_A_REGC_OR_FWD:  alu_operand_a_tag = operand_c_tag_fw_id;
+      OP_A_CURRPC:       alu_operand_a_tag = 1'b0;
+      OP_A_IMM:          alu_operand_a_tag = 1'b0;
+      default:           alu_operand_a_tag = operand_a_tag_fw_id;
+    endcase; // case (alu_op_a_mux_sel)
+  end
 
   always_comb begin : immediate_a_mux
     unique case (imm_a_mux_sel)
@@ -653,6 +696,15 @@ module riscv_id_stage
       SEL_FW_WB:    operand_a_fw_id = regfile_wdata_wb_i;
       SEL_REGFILE:  operand_a_fw_id = regfile_data_ra_id;
       default:      operand_a_fw_id = regfile_data_ra_id;
+    endcase; // case (operand_a_fw_mux_sel)
+  end
+  // Operand a tag forwarding mux
+  always_comb begin : operand_a_tag_fw_mux
+    case (operand_a_fw_mux_sel)
+      SEL_FW_EX:    operand_a_tag_fw_id = regfile_alu_wtag_fw_i;
+      SEL_FW_WB:    operand_a_tag_fw_id = regfile_wtag_wb_i;
+      SEL_REGFILE:  operand_a_tag_fw_id = regfile_tag_ra_id;
+      default:      operand_a_tag_fw_id = regfile_tag_ra_id;
     endcase; // case (operand_a_fw_mux_sel)
   end
 
@@ -696,6 +748,17 @@ module riscv_id_stage
       default:           operand_b = operand_b_fw_id;
     endcase // case (alu_op_b_mux_sel)
   end
+  
+  always_comb begin : alu_operand_b_tag_mux
+    case (alu_op_b_mux_sel)
+      OP_B_REGA_OR_FWD:  operand_b_tag = operand_a_tag_fw_id;
+      OP_B_REGB_OR_FWD:  operand_b_tag = operand_b_tag_fw_id;
+      OP_B_REGC_OR_FWD:  operand_b_tag = operand_c_tag_fw_id;
+      OP_B_IMM:          operand_b_tag = 1'b0;
+      OP_B_BMASK:        operand_b_tag = operand_b_tag_fw_id;
+      default:           operand_b_tag = operand_b_tag_fw_id;
+    endcase // case (alu_op_b_mux_sel)
+  end
 
 
   // scalar replication for operand B and shuffle type
@@ -711,6 +774,7 @@ module riscv_id_stage
 
   // choose normal or scalar replicated version of operand b
   assign alu_operand_b = (scalar_replication == 1'b1) ? operand_b_vec : operand_b;
+  assign alu_operand_b_tag = operand_b_tag;
 
 
   // Operand b forwarding mux
@@ -720,6 +784,15 @@ module riscv_id_stage
       SEL_FW_WB:    operand_b_fw_id = regfile_wdata_wb_i;
       SEL_REGFILE:  operand_b_fw_id = regfile_data_rb_id;
       default:      operand_b_fw_id = regfile_data_rb_id;
+    endcase; // case (operand_b_fw_mux_sel)
+  end
+  
+  always_comb begin : operand_b_tag_fw_mux
+    case (operand_b_fw_mux_sel)
+      SEL_FW_EX:    operand_b_tag_fw_id = regfile_alu_wtag_fw_i;
+      SEL_FW_WB:    operand_b_tag_fw_id = regfile_wtag_wb_i;
+      SEL_REGFILE:  operand_b_tag_fw_id = regfile_tag_rb_id;
+      default:      operand_b_tag_fw_id = regfile_tag_rb_id;
     endcase; // case (operand_b_fw_mux_sel)
   end
 
@@ -742,6 +815,15 @@ module riscv_id_stage
       default:           operand_c = operand_c_fw_id;
     endcase // case (alu_op_c_mux_sel)
   end
+  
+  always_comb begin : alu_operand_c_tag_mux
+    case (alu_op_c_mux_sel)
+      OP_C_REGC_OR_FWD:  operand_c_tag = operand_c_tag_fw_id;
+      OP_C_REGB_OR_FWD:  operand_c_tag = operand_b_tag_fw_id;
+      OP_C_JT:           operand_c_tag = jump_target_tag;
+      default:           operand_c_tag = operand_c_tag_fw_id;
+    endcase // case (alu_op_c_mux_sel)
+  end
 
 
   // scalar replication for operand C and shuffle type
@@ -755,6 +837,7 @@ module riscv_id_stage
 
   // choose normal or scalar replicated version of operand b
   assign alu_operand_c = (scalar_replication_c == 1'b1) ? operand_c_vec : operand_c;
+  assign alu_operand_c_tag = operand_c_tag;
 
 
   // Operand c forwarding mux
@@ -764,6 +847,15 @@ module riscv_id_stage
       SEL_FW_WB:    operand_c_fw_id = regfile_wdata_wb_i;
       SEL_REGFILE:  operand_c_fw_id = regfile_data_rc_id;
       default:      operand_c_fw_id = regfile_data_rc_id;
+    endcase; // case (operand_c_fw_mux_sel)
+  end
+  
+  always_comb begin : operand_c_tag_fw_mux
+    case (operand_c_fw_mux_sel)
+      SEL_FW_EX:    operand_c_tag_fw_id = regfile_alu_wtag_fw_i;
+      SEL_FW_WB:    operand_c_tag_fw_id = regfile_wtag_wb_i;
+      SEL_REGFILE:  operand_c_tag_fw_id = regfile_tag_rc_id;
+      default:      operand_c_tag_fw_id = regfile_tag_rc_id;
     endcase; // case (operand_c_fw_mux_sel)
   end
 
@@ -978,23 +1070,28 @@ module riscv_id_stage
     // Read port a
     .raddr_a_i          ( regfile_addr_ra_id ),
     .rdata_a_o          ( regfile_data_ra_id ),
+    .rtag_a_o           ( regfile_tag_ra_id  ),
 
     // Read port b
     .raddr_b_i          ( regfile_addr_rb_id ),
     .rdata_b_o          ( regfile_data_rb_id ),
+    .rtag_b_o           ( regfile_tag_rb_id  ),
 
     // Read port c
     .raddr_c_i          ( regfile_addr_rc_id ),
     .rdata_c_o          ( regfile_data_rc_id ),
+    .rtag_c_o           ( regfile_tag_rc_id  ),
 
     // Write port a
     .waddr_a_i          ( regfile_waddr_wb_i ),
     .wdata_a_i          ( regfile_wdata_wb_i ),
+    .wtag_a_i           ( regfile_wtag_wb_i  ),
     .we_a_i             ( regfile_we_wb_i    ),
 
     // Write port b
     .waddr_b_i          ( regfile_alu_waddr_fw_i ),
     .wdata_b_i          ( regfile_alu_wdata_fw_i ),
+    .wtag_b_i           ( regfile_alu_wtag_fw_i ),
     .we_b_i             ( regfile_alu_we_fw_i ),
 
      // BIST ENABLE
@@ -1410,8 +1507,11 @@ module riscv_id_stage
       alu_en_ex_o                 <= '0;
       alu_operator_ex_o           <= ALU_SLTU;
       alu_operand_a_ex_o          <= '0;
+      alu_operand_a_tag_ex_o      <= '0;
       alu_operand_b_ex_o          <= '0;
+      alu_operand_b_tag_ex_o      <= '0;
       alu_operand_c_ex_o          <= '0;
+      alu_operand_c_tag_ex_o      <= '0;
       bmask_a_ex_o                <= '0;
       bmask_b_ex_o                <= '0;
       imm_vec_ext_ex_o            <= '0;
@@ -1422,16 +1522,22 @@ module riscv_id_stage
 
       mult_operator_ex_o          <= '0;
       mult_operand_a_ex_o         <= '0;
+      mult_operand_a_tag_ex_o     <= '0;
       mult_operand_b_ex_o         <= '0;
+      mult_operand_b_tag_ex_o     <= '0;
       mult_operand_c_ex_o         <= '0;
+      mult_operand_c_tag_ex_o     <= '0;
       mult_en_ex_o                <= 1'b0;
       mult_sel_subword_ex_o       <= 1'b0;
       mult_signed_mode_ex_o       <= 2'b00;
       mult_imm_ex_o               <= '0;
 
       mult_dot_op_a_ex_o          <= '0;
+      mult_dot_op_a_tag_ex_o      <= '0;
       mult_dot_op_b_ex_o          <= '0;
+      mult_dot_op_b_tag_ex_o      <= '0;
       mult_dot_op_c_ex_o          <= '0;
+      mult_dot_op_c_tag_ex_o      <= '0;
       mult_dot_signed_ex_o        <= '0;
       mult_is_clpx_ex_o           <= 1'b0;
       mult_clpx_shift_ex_o        <= 2'b0;
@@ -1483,16 +1589,19 @@ module riscv_id_stage
         if (prepost_useincr_ex_o == 1'b1)
         begin
           alu_operand_a_ex_o        <= alu_operand_a;
+          alu_operand_a_tag_ex_o    <= alu_operand_a_tag;
         end
 
         alu_operand_b_ex_o          <= alu_operand_b;
+        alu_operand_b_tag_ex_o      <= alu_operand_b_tag;
         regfile_alu_we_ex_o         <= regfile_alu_we_id;
         prepost_useincr_ex_o        <= prepost_useincr;
 
         data_misaligned_ex_o        <= 1'b1;
       end
     end else if (mult_multicycle_i) begin
-      mult_operand_c_ex_o <= alu_operand_c;
+      mult_operand_c_ex_o     <= alu_operand_c;
+      mult_operand_c_tag_ex_o <= alu_operand_c_tag;
     end
     else begin
       // normal pipeline unstall case
@@ -1507,8 +1616,11 @@ module riscv_id_stage
           alu_operator_ex_o           <= branch_taken_ex ? ALU_SLTU : alu_operator;
           if(~branch_taken_ex) begin
             alu_operand_a_ex_o        <= alu_operand_a;
+            alu_operand_a_tag_ex_o    <= alu_operand_a_tag;
             alu_operand_b_ex_o        <= alu_operand_b;
+            alu_operand_b_tag_ex_o    <= alu_operand_b_tag;
             alu_operand_c_ex_o        <= alu_operand_c;
+            alu_operand_c_tag_ex_o    <= alu_operand_c_tag;
             bmask_a_ex_o              <= bmask_a_id;
             bmask_b_ex_o              <= bmask_b_id;
             imm_vec_ext_ex_o          <= imm_vec_ext_id;
@@ -1525,16 +1637,22 @@ module riscv_id_stage
           mult_sel_subword_ex_o     <= mult_sel_subword;
           mult_signed_mode_ex_o     <= mult_signed_mode;
           mult_operand_a_ex_o       <= alu_operand_a;
+          mult_operand_a_tag_ex_o   <= alu_operand_a_tag;
           mult_operand_b_ex_o       <= alu_operand_b;
+          mult_operand_b_tag_ex_o   <= alu_operand_b_tag;
           mult_operand_c_ex_o       <= alu_operand_c;
+          mult_operand_c_tag_ex_o   <= alu_operand_c_tag;
           mult_imm_ex_o             <= mult_imm_id;
         end
         if (mult_dot_en) begin
           mult_operator_ex_o        <= mult_operator;
           mult_dot_signed_ex_o      <= mult_dot_signed;
           mult_dot_op_a_ex_o        <= alu_operand_a;
+          mult_dot_op_a_tag_ex_o    <= alu_operand_a_tag;
           mult_dot_op_b_ex_o        <= alu_operand_b;
+          mult_dot_op_b_tag_ex_o    <= alu_operand_b_tag;
           mult_dot_op_c_ex_o        <= alu_operand_c;
+          mult_dot_op_c_tag_ex_o    <= alu_operand_c_tag;
           mult_is_clpx_ex_o         <= is_clpx;
           mult_clpx_shift_ex_o      <= instr[14:13];
           mult_clpx_img_ex_o        <= instr[25];

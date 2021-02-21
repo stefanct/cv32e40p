@@ -44,23 +44,28 @@ module riscv_register_file
     //Read port R1
     input  logic [ADDR_WIDTH-1:0]  raddr_a_i,
     output logic [DATA_WIDTH-1:0]  rdata_a_o,
+    output logic                   rtag_a_o,
 
     //Read port R2
     input  logic [ADDR_WIDTH-1:0]  raddr_b_i,
     output logic [DATA_WIDTH-1:0]  rdata_b_o,
+    output logic                   rtag_b_o,
 
     //Read port R3
     input  logic [ADDR_WIDTH-1:0]  raddr_c_i,
     output logic [DATA_WIDTH-1:0]  rdata_c_o,
+    output logic                   rtag_c_o,
 
     // Write port W1
     input logic [ADDR_WIDTH-1:0]   waddr_a_i,
     input logic [DATA_WIDTH-1:0]   wdata_a_i,
+    input logic                    wtag_a_i,
     input logic                    we_a_i,
 
     // Write port W2
     input logic [ADDR_WIDTH-1:0]   waddr_b_i,
     input logic [DATA_WIDTH-1:0]   wdata_b_i,
+    input logic                    wtag_b_i,
     input logic                    we_b_i
 );
 
@@ -72,9 +77,11 @@ module riscv_register_file
 
   // integer register file
   logic [NUM_WORDS-1:0][DATA_WIDTH-1:0]     mem;
+  logic [NUM_WORDS-1:0]                     mem_tag;
 
   // fp register file
   logic [NUM_FP_WORDS-1:0][DATA_WIDTH-1:0]  mem_fp;
+  logic [NUM_FP_WORDS-1:0]                  mem_fp_tag;
 
   // masked write addresses
   logic [ADDR_WIDTH-1:0]                    waddr_a;
@@ -89,13 +96,19 @@ module riscv_register_file
   //-- READ : Read address decoder RAD
   //-----------------------------------------------------------------------------
   if (FPU == 1 && Zfinx == 0) begin
-     assign rdata_a_o = raddr_a_i[5] ? mem_fp[raddr_a_i[4:0]] : mem[raddr_a_i[4:0]];
-     assign rdata_b_o = raddr_b_i[5] ? mem_fp[raddr_b_i[4:0]] : mem[raddr_b_i[4:0]];
-     assign rdata_c_o = raddr_c_i[5] ? mem_fp[raddr_c_i[4:0]] : mem[raddr_c_i[4:0]];
+     assign rdata_a_o = raddr_a_i[5] ? mem_fp    [raddr_a_i[4:0]] : mem    [raddr_a_i[4:0]];
+     assign rtag_a_o  = raddr_a_i[5] ? mem_fp_tag[raddr_a_i[4:0]] : mem_tag[raddr_a_i[4:0]];
+     assign rdata_b_o = raddr_b_i[5] ? mem_fp    [raddr_b_i[4:0]] : mem    [raddr_b_i[4:0]];
+     assign rtag_b_o  = raddr_b_i[5] ? mem_fp_tag[raddr_b_i[4:0]] : mem_tag[raddr_b_i[4:0]];
+     assign rdata_c_o = raddr_c_i[5] ? mem_fp    [raddr_c_i[4:0]] : mem    [raddr_c_i[4:0]];
+     assign rtag_c_o  = raddr_c_i[5] ? mem_fp_tag[raddr_c_i[4:0]] : mem_tag[raddr_c_i[4:0]];
   end else begin
-     assign rdata_a_o = mem[raddr_a_i[4:0]];
-     assign rdata_b_o = mem[raddr_b_i[4:0]];
-     assign rdata_c_o = mem[raddr_c_i[4:0]];
+     assign rdata_a_o = mem    [raddr_a_i[4:0]];
+     assign rtag_a_o  = mem_tag[raddr_a_i[4:0]];
+     assign rdata_b_o = mem    [raddr_b_i[4:0]];
+     assign rtag_b_o  = mem_tag[raddr_b_i[4:0]];
+     assign rdata_c_o = mem    [raddr_c_i[4:0]];
+     assign rtag_c_o  = mem_tag[raddr_c_i[4:0]];
   end
 
   //-----------------------------------------------------------------------------
@@ -142,6 +155,16 @@ module riscv_register_file
         mem[0] <= 32'b0;
       end
     end
+    // R0 tag
+    always_ff @(posedge clk or negedge rst_n) begin
+      if(~rst_n) begin
+        // R0 is nil
+        mem_tag[0] <= 1'b0;
+      end else begin
+        // R0 is nil
+        mem_tag[0] <= 1'b0;
+      end
+    end
 
     // loop from 1 to NUM_WORDS-1 as R0 is nil
     for (i = 1; i < NUM_WORDS; i++)
@@ -158,6 +181,18 @@ module riscv_register_file
             mem[i] <= wdata_a_i;
         end
       end
+      
+      always_ff @(posedge clk, negedge rst_n)
+      begin : register_write_tag_behavioral
+        if (rst_n==1'b0) begin
+          mem_tag[i] <= 1'b0;
+        end else begin
+          if(we_b_dec[i] == 1'b1)
+            mem_tag[i] <= wtag_b_i;
+          else if(we_a_dec[i] == 1'b1)
+            mem_tag[i] <= wtag_a_i;
+        end
+      end
 
     end
 
@@ -172,6 +207,16 @@ module riscv_register_file
             mem_fp[l] <= wdata_b_i;
           else if(we_a_dec[l+NUM_WORDS] == 1'b1)
             mem_fp[l] <= wdata_a_i;
+        end
+        
+        always_ff @(posedge clk, negedge rst_n)
+        begin : fp_regs_tag
+          if (rst_n==1'b0)
+            mem_fp_tag[l] <= '0;
+          else if(we_b_dec[l+NUM_WORDS] == 1'b1)
+            mem_fp_tag[l] <= wtag_b_i;
+          else if(we_a_dec[l+NUM_WORDS] == 1'b1)
+            mem_fp_tag[l] <= wtag_a_i;
         end
       end
     end

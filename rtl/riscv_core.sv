@@ -176,8 +176,11 @@ module riscv_core
   logic        alu_en_ex;
   logic [ALU_OP_WIDTH-1:0] alu_operator_ex;
   logic [31:0] alu_operand_a_ex;
+  logic        alu_operand_a_tag_ex;
   logic [31:0] alu_operand_b_ex;
+  logic        alu_operand_b_tag_ex;
   logic [31:0] alu_operand_c_ex;
+  logic        alu_operand_c_tag_ex;
   logic [ 4:0] bmask_a_ex;
   logic [ 4:0] bmask_b_ex;
   logic [ 1:0] imm_vec_ext_ex;
@@ -268,6 +271,7 @@ module riscv_core
   logic        data_misaligned_ex;
 
   logic [31:0] lsu_rdata;
+  logic        lsu_rtag;
 
   // stall control
   logic        halt_if;
@@ -346,8 +350,6 @@ module riscv_core
   logic [31:0]                      instr_addr_pmp;
   logic                             instr_err_pmp;
   
-  // hardwire write tag bit
-  assign data_wtag_o = 4'b0000;
 
   //Simchecker signal
   logic is_interrupt;
@@ -617,8 +619,11 @@ module riscv_core
     .alu_en_ex_o                  ( alu_en_ex            ),
     .alu_operator_ex_o            ( alu_operator_ex      ),
     .alu_operand_a_ex_o           ( alu_operand_a_ex     ),
+    .alu_operand_a_tag_ex_o       ( alu_operand_a_tag_ex ),
     .alu_operand_b_ex_o           ( alu_operand_b_ex     ),
+    .alu_operand_b_tag_ex_o       ( alu_operand_b_tag_ex ),
     .alu_operand_c_ex_o           ( alu_operand_c_ex     ),
+    .alu_operand_c_tag_ex_o       ( alu_operand_c_tag_ex ),
     .bmask_a_ex_o                 ( bmask_a_ex           ),
     .bmask_b_ex_o                 ( bmask_b_ex           ),
     .imm_vec_ext_ex_o             ( imm_vec_ext_ex       ),
@@ -849,6 +854,7 @@ module riscv_core
 
     .lsu_en_i                   ( data_req_ex                  ),
     .lsu_rdata_i                ( lsu_rdata                    ),
+    .lsu_rtag_i                 ( lsu_rtag                     ),
 
     // interface with CSRs
     .csr_access_i               ( csr_access_ex                ),
@@ -910,16 +916,20 @@ module riscv_core
     .data_we_o             ( data_we_o          ),
     .data_be_o             ( data_be_o          ),
     .data_wdata_o          ( data_wdata_o       ),
+    .data_wtag_o           ( data_wtag_o        ),
     .data_rdata_i          ( data_rdata_i       ),
+    .data_rtag_i           ( data_rtag_i        ),
 
     // signal from ex stage
     .data_we_ex_i          ( data_we_ex         ),
     .data_type_ex_i        ( data_type_ex       ),
     .data_wdata_ex_i       ( alu_operand_c_ex   ),
+    .data_wtag_ex_i        ( alu_operand_c_tag_ex),
     .data_reg_offset_ex_i  ( data_reg_offset_ex ),
     .data_sign_ext_ex_i    ( data_sign_ext_ex   ),  // sign extension
 
     .data_rdata_ex_o       ( lsu_rdata          ),
+    .data_rtag_ex_o        ( lsu_rtag           ),
     .data_req_ex_i         ( data_req_ex        ),
     .operand_a_ex_i        ( alu_operand_a_ex   ),
     .operand_b_ex_i        ( alu_operand_b_ex   ),
