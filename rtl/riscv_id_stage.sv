@@ -639,8 +639,8 @@ module riscv_id_stage
 
   always_comb begin : jump_target_tag_mux
     unique case (jump_target_mux_sel)
-      JT_JAL:  jump_target_tag = 1b'0;
-      JT_COND: jump_target_tag = 1b'0;
+      JT_JAL:  jump_target_tag = 1'b0;
+      JT_COND: jump_target_tag = 1'b0;
       JT_JALR: jump_target_tag = regfile_tag_ra_id;
       default: jump_target_tag = regfile_tag_ra_id;
     endcase

@@ -340,12 +340,13 @@ module riscv_load_store_unit
         // store the data coming from memory in rdata_q.
         // In all other cases, rdata_q gets the value that we are
         // writing to the register file
-        if ((data_misaligned_ex_i == 1'b1) || (data_misaligned_o == 1'b1))
+        if ((data_misaligned_ex_i == 1'b1) || (data_misaligned_o == 1'b1)) begin
           rdata_q  <= data_rdata_i;
           rtag_q   <= data_rtag_i;
-        else
+        end else begin
           rdata_q  <= data_rdata_ext;
           rtag_q   <= data_rtag_ext;
+        end
       end
     end
   end
