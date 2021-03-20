@@ -56,8 +56,11 @@ module riscv_ex_stage
   // ALU signals from ID stage
   input  logic [ALU_OP_WIDTH-1:0] alu_operator_i,
   input  logic [31:0] alu_operand_a_i,
+  input  logic        alu_operand_a_tag_i,
   input  logic [31:0] alu_operand_b_i,
+  input  logic        alu_operand_b_tag_i,
   input  logic [31:0] alu_operand_c_i,
+  input  logic        alu_operand_c_tag_i,
   input  logic        alu_en_i,
   input  logic [ 4:0] bmask_a_i,
   input  logic [ 4:0] bmask_b_i,
@@ -70,16 +73,22 @@ module riscv_ex_stage
   // Multiplier signals
   input  logic [ 2:0] mult_operator_i,
   input  logic [31:0] mult_operand_a_i,
+  input  logic        mult_operand_a_tag_i,
   input  logic [31:0] mult_operand_b_i,
+  input  logic        mult_operand_b_tag_i,
   input  logic [31:0] mult_operand_c_i,
+  input  logic        mult_operand_c_tag_i,
   input  logic        mult_en_i,
   input  logic        mult_sel_subword_i,
   input  logic [ 1:0] mult_signed_mode_i,
   input  logic [ 4:0] mult_imm_i,
 
   input  logic [31:0] mult_dot_op_a_i,
+  input  logic        mult_dot_op_a_tag_i,
   input  logic [31:0] mult_dot_op_b_i,
+  input  logic        mult_dot_op_b_tag_i,
   input  logic [31:0] mult_dot_op_c_i,
+  input  logic        mult_dot_op_c_tag_i,
   input  logic [ 1:0] mult_dot_signed_i,
   input  logic        mult_is_clpx_i,
   input  logic [ 1:0] mult_clpx_shift_i,
@@ -128,6 +137,7 @@ module riscv_ex_stage
 
   input  logic        lsu_en_i,
   input  logic [31:0] lsu_rdata_i,
+  input  logic        lsu_rtag_i,
 
   // input from ID stage
   input  logic        branch_in_ex_i,
@@ -146,11 +156,13 @@ module riscv_ex_stage
   output logic [5:0]  regfile_waddr_wb_o,
   output logic        regfile_we_wb_o,
   output logic [31:0] regfile_wdata_wb_o,
+  output logic        regfile_wtag_wb_o,
 
   // Forwarding ports : to ID stage
   output logic  [5:0] regfile_alu_waddr_fw_o,
   output logic        regfile_alu_we_fw_o,
   output logic [31:0] regfile_alu_wdata_fw_o,    // forward to RF and ID/EX pipe, ALU & MUL
+  output logic        regfile_alu_wtag_fw_o,     // forward to RF and ID/EX pipe, ALU & MUL
 
   // To IF: Jump and branch target and decision
   output logic [31:0] jump_target_o,
@@ -168,6 +180,7 @@ module riscv_ex_stage
   logic [31:0]    alu_result;
   logic [31:0]    mult_result;
   logic           alu_cmp_result;
+  logic           tag_result;
 
   logic           regfile_we_lsu;
   logic [5:0]     regfile_waddr_lsu;
@@ -197,6 +210,7 @@ module riscv_ex_stage
   always_comb
   begin
     regfile_alu_wdata_fw_o = '0;
+    regfile_alu_wtag_fw_o  = 1'b0;  // not sure why/if this is needed
     regfile_alu_waddr_fw_o = '0;
     regfile_alu_we_fw_o    = '0;
     wb_contention          = 1'b0;
@@ -206,6 +220,7 @@ module riscv_ex_stage
       regfile_alu_we_fw_o    = 1'b1;
       regfile_alu_waddr_fw_o = apu_waddr;
       regfile_alu_wdata_fw_o = apu_result;
+      regfile_alu_wtag_fw_o  = 1'b1;  // TODO DIFT: APU result is ALWAYS tainted... is this okay???
 
       if(regfile_alu_we_i & ~apu_en_i) begin
         wb_contention = 1'b1;
@@ -213,12 +228,16 @@ module riscv_ex_stage
     end else begin
       regfile_alu_we_fw_o      = regfile_alu_we_i & ~apu_en_i; // private fpu incomplete?
       regfile_alu_waddr_fw_o   = regfile_alu_waddr_i;
-      if (alu_en_i)
+      regfile_alu_wtag_fw_o    = tag_result;
+      if (alu_en_i) begin
         regfile_alu_wdata_fw_o = alu_result;
-      if (mult_en_i)
+      end
+      if (mult_en_i) begin
         regfile_alu_wdata_fw_o = mult_result;
-      if (csr_access_i)
+      end
+      if (csr_access_i) begin
         regfile_alu_wdata_fw_o = csr_rdata_i;
+      end
     end
   end
 
@@ -228,6 +247,7 @@ module riscv_ex_stage
     regfile_we_wb_o    = 1'b0;
     regfile_waddr_wb_o = regfile_waddr_lsu;
     regfile_wdata_wb_o = lsu_rdata_i;
+    regfile_wtag_wb_o  = lsu_rtag_i;
     wb_contention_lsu  = 1'b0;
 
     if (regfile_we_lsu) begin
@@ -241,6 +261,7 @@ module riscv_ex_stage
       regfile_we_wb_o    = 1'b1;
       regfile_waddr_wb_o = apu_waddr;
       regfile_wdata_wb_o = apu_result;
+      regfile_wtag_wb_o  = 1'b1;  // TODO DIFT: APU result is ALWAYS tainted... is this okay???
     end
   end
 
@@ -248,6 +269,38 @@ module riscv_ex_stage
   assign branch_decision_o = alu_cmp_result;
   assign jump_target_o     = alu_operand_c_i;
 
+
+  ////////////////////////////
+  //         DIFT           //
+  // TAG PROPAGATION LOGIC  //
+  ////////////////////////////
+  dift_tag_propagation
+  #(
+    .ALU_OP_WIDTH( ALU_OP_WIDTH )
+    )
+   dift_tag_propagation_i
+  (
+    // operand's tag bits (alu operands, mult operands, mult_dot operands)
+    .alu_operand_a_tag_i  ( alu_operand_a_tag_i  ),
+    .alu_operand_b_tag_i  ( alu_operand_b_tag_i  ),
+    .alu_operand_c_tag_i  ( alu_operand_c_tag_i  ),
+    .mult_operand_a_tag_i ( mult_operand_a_tag_i ),
+    .mult_operand_b_tag_i ( mult_operand_b_tag_i ),
+    .mult_operand_c_tag_i ( mult_operand_c_tag_i ),
+    .mult_dot_op_a_tag_i  ( mult_dot_op_a_tag_i  ),
+    .mult_dot_op_b_tag_i  ( mult_dot_op_b_tag_i  ),
+    .mult_dot_op_c_tag_i  ( mult_dot_op_c_tag_i  ),
+    // enable bits (ALU or MULT or CSR)
+    .alu_en_i             ( alu_en_i             ),
+    .mult_en_i            ( mult_en_i            ),
+    .csr_access_i         ( csr_access_i         ),
+    // operation
+    .alu_operator_i       ( alu_operator_i       ),
+    .mult_operator_i      ( mult_operator_i      ),
+    // output (resulting tag)
+    .tag_result_o         ( tag_result           )
+  );
+    
 
   ////////////////////////////
   //     _    _    _   _    //
@@ -265,7 +318,7 @@ module riscv_ex_stage
     )
    alu_i
   (
-    .clk                 ( clk             ),
+    .clk                 (                 ),
     .rst_n               ( rst_n           ),
     .enable_i            ( alu_en_i        ),
     .operator_i          ( alu_operator_i  ),

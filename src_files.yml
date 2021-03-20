@@ -31,6 +31,7 @@ riscv:
     ./rtl/riscv_controller.sv,
     ./rtl/riscv_cs_registers.sv,
     ./rtl/riscv_decoder.sv,
+    ./rtl/riscv_dift_tag_propagation.sv
     ./rtl/riscv_int_controller.sv,
     ./rtl/riscv_ex_stage.sv,
     ./rtl/riscv_hwloop_controller.sv,

@@ -176,10 +176,10 @@ module riscv_core
   logic        alu_en_ex;
   logic [ALU_OP_WIDTH-1:0] alu_operator_ex;
   logic [31:0] alu_operand_a_ex;
-  logic        alu_operand_a_tag_ex;
   logic [31:0] alu_operand_b_ex;
-  logic        alu_operand_b_tag_ex;
   logic [31:0] alu_operand_c_ex;
+  logic        alu_operand_a_tag_ex;
+  logic        alu_operand_b_tag_ex;
   logic        alu_operand_c_tag_ex;
   logic [ 4:0] bmask_a_ex;
   logic [ 4:0] bmask_b_ex;
@@ -193,6 +193,9 @@ module riscv_core
   logic [31:0] mult_operand_a_ex;
   logic [31:0] mult_operand_b_ex;
   logic [31:0] mult_operand_c_ex;
+  logic        mult_operand_a_tag_ex;
+  logic        mult_operand_b_tag_ex;
+  logic        mult_operand_c_tag_ex;
   logic        mult_en_ex;
   logic        mult_sel_subword_ex;
   logic [ 1:0] mult_signed_mode_ex;
@@ -200,6 +203,9 @@ module riscv_core
   logic [31:0] mult_dot_op_a_ex;
   logic [31:0] mult_dot_op_b_ex;
   logic [31:0] mult_dot_op_c_ex;
+  logic        mult_dot_op_a_tag_ex;
+  logic        mult_dot_op_b_tag_ex;
+  logic        mult_dot_op_c_tag_ex;
   logic [ 1:0] mult_dot_signed_ex;
   logic        mult_is_clpx_ex_o;
   logic [ 1:0] mult_clpx_shift_ex;
@@ -240,6 +246,7 @@ module riscv_core
   logic [5:0]  regfile_waddr_fw_wb_o;        // From WB to ID
   logic        regfile_we_wb;
   logic [31:0] regfile_wdata;
+  logic        regfile_wtag;
 
   logic [5:0]  regfile_alu_waddr_ex;
   logic        regfile_alu_we_ex;
@@ -247,6 +254,7 @@ module riscv_core
   logic [5:0]  regfile_alu_waddr_fw;
   logic        regfile_alu_we_fw;
   logic [31:0] regfile_alu_wdata_fw;
+  logic        regfile_alu_wtag_fw;
 
   // CSR control
   logic        csr_access_ex;
@@ -644,13 +652,19 @@ module riscv_core
     .mult_sel_subword_ex_o        ( mult_sel_subword_ex  ), // from ID to EX stage
     .mult_signed_mode_ex_o        ( mult_signed_mode_ex  ), // from ID to EX stage
     .mult_operand_a_ex_o          ( mult_operand_a_ex    ), // from ID to EX stage
+    .mult_operand_a_tag_ex_o      ( mult_operand_a_tag_ex), // from ID to EX stage
     .mult_operand_b_ex_o          ( mult_operand_b_ex    ), // from ID to EX stage
+    .mult_operand_b_tag_ex_o      ( mult_operand_b_tag_ex), // from ID to EX stage
     .mult_operand_c_ex_o          ( mult_operand_c_ex    ), // from ID to EX stage
+    .mult_operand_c_tag_ex_o      ( mult_operand_c_tag_ex), // from ID to EX stage
     .mult_imm_ex_o                ( mult_imm_ex          ), // from ID to EX stage
 
     .mult_dot_op_a_ex_o           ( mult_dot_op_a_ex     ), // from ID to EX stage
+    .mult_dot_op_a_tag_ex_o       ( mult_dot_op_a_tag_ex ), // from ID to EX stage
     .mult_dot_op_b_ex_o           ( mult_dot_op_b_ex     ), // from ID to EX stage
+    .mult_dot_op_b_tag_ex_o       ( mult_dot_op_b_tag_ex ), // from ID to EX stage
     .mult_dot_op_c_ex_o           ( mult_dot_op_c_ex     ), // from ID to EX stage
+    .mult_dot_op_c_tag_ex_o       ( mult_dot_op_c_tag_ex ), // from ID to EX stage
     .mult_dot_signed_ex_o         ( mult_dot_signed_ex   ), // from ID to EX stage
     .mult_is_clpx_ex_o            ( mult_is_clpx_ex      ), // from ID to EX stage
     .mult_clpx_shift_ex_o         ( mult_clpx_shift_ex   ), // from ID to EX stage
@@ -739,10 +753,12 @@ module riscv_core
     .regfile_waddr_wb_i           ( regfile_waddr_fw_wb_o),  // Write address ex-wb pipeline
     .regfile_we_wb_i              ( regfile_we_wb        ),  // write enable for the register file
     .regfile_wdata_wb_i           ( regfile_wdata        ),  // write data to commit in the register file
+    .regfile_wtag_wb_i            ( regfile_wtag         ),  // write tag to commit in the register file
 
     .regfile_alu_waddr_fw_i       ( regfile_alu_waddr_fw ),
     .regfile_alu_we_fw_i          ( regfile_alu_we_fw    ),
     .regfile_alu_wdata_fw_i       ( regfile_alu_wdata_fw ),
+    .regfile_alu_wtag_fw_i        ( regfile_alu_wtag_fw  ),
 
     // from ALU
     .mult_multicycle_i            ( mult_multicycle      ),
@@ -785,8 +801,11 @@ module riscv_core
     .alu_en_i                   ( alu_en_ex                    ),
     .alu_operator_i             ( alu_operator_ex              ), // from ID/EX pipe registers
     .alu_operand_a_i            ( alu_operand_a_ex             ), // from ID/EX pipe registers
+    .alu_operand_a_tag_i        ( alu_operand_a_tag_ex         ), // from ID/EX pipe registers
     .alu_operand_b_i            ( alu_operand_b_ex             ), // from ID/EX pipe registers
+    .alu_operand_b_tag_i        ( alu_operand_b_tag_ex         ), // from ID/EX pipe registers
     .alu_operand_c_i            ( alu_operand_c_ex             ), // from ID/EX pipe registers
+    .alu_operand_c_tag_i        ( alu_operand_c_tag_ex         ), // from ID/EX pipe registers
     .bmask_a_i                  ( bmask_a_ex                   ), // from ID/EX pipe registers
     .bmask_b_i                  ( bmask_b_ex                   ), // from ID/EX pipe registers
     .imm_vec_ext_i              ( imm_vec_ext_ex               ), // from ID/EX pipe registers
@@ -798,15 +817,21 @@ module riscv_core
     // Multipler
     .mult_operator_i            ( mult_operator_ex             ), // from ID/EX pipe registers
     .mult_operand_a_i           ( mult_operand_a_ex            ), // from ID/EX pipe registers
+    .mult_operand_a_tag_i       ( mult_operand_a_tag_ex        ), // from ID/EX pipe registers
     .mult_operand_b_i           ( mult_operand_b_ex            ), // from ID/EX pipe registers
+    .mult_operand_b_tag_i       ( mult_operand_b_tag_ex        ), // from ID/EX pipe registers
     .mult_operand_c_i           ( mult_operand_c_ex            ), // from ID/EX pipe registers
+    .mult_operand_c_tag_i       ( mult_operand_c_tag_ex        ), // from ID/EX pipe registers
     .mult_en_i                  ( mult_en_ex                   ), // from ID/EX pipe registers
     .mult_sel_subword_i         ( mult_sel_subword_ex          ), // from ID/EX pipe registers
     .mult_signed_mode_i         ( mult_signed_mode_ex          ), // from ID/EX pipe registers
     .mult_imm_i                 ( mult_imm_ex                  ), // from ID/EX pipe registers
     .mult_dot_op_a_i            ( mult_dot_op_a_ex             ), // from ID/EX pipe registers
+    .mult_dot_op_a_tag_i        ( mult_dot_op_a_tag_ex         ), // from ID/EX pipe registers
     .mult_dot_op_b_i            ( mult_dot_op_b_ex             ), // from ID/EX pipe registers
+    .mult_dot_op_b_tag_i        ( mult_dot_op_b_tag_ex         ), // from ID/EX pipe registers
     .mult_dot_op_c_i            ( mult_dot_op_c_ex             ), // from ID/EX pipe registers
+    .mult_dot_op_c_tag_i        ( mult_dot_op_c_tag_ex         ), // from ID/EX pipe registers
     .mult_dot_signed_i          ( mult_dot_signed_ex           ), // from ID/EX pipe registers
     .mult_is_clpx_i             ( mult_is_clpx_ex              ), // from ID/EX pipe registers
     .mult_clpx_shift_i          ( mult_clpx_shift_ex           ), // from ID/EX pipe registers
@@ -872,6 +897,7 @@ module riscv_core
     .regfile_waddr_wb_o         ( regfile_waddr_fw_wb_o        ),
     .regfile_we_wb_o            ( regfile_we_wb                ),
     .regfile_wdata_wb_o         ( regfile_wdata                ),
+    .regfile_wtag_wb_o          ( regfile_wtag                 ),
 
     // To IF: Jump and branch target and decision
     .jump_target_o              ( jump_target_ex               ),
@@ -881,6 +907,7 @@ module riscv_core
     .regfile_alu_waddr_fw_o     ( regfile_alu_waddr_fw         ),
     .regfile_alu_we_fw_o        ( regfile_alu_we_fw            ),
     .regfile_alu_wdata_fw_o     ( regfile_alu_wdata_fw         ),
+    .regfile_alu_wtag_fw_o      ( regfile_alu_wtag_fw          ),
 
     // stall control
     .lsu_ready_ex_i             ( lsu_ready_ex                 ),
