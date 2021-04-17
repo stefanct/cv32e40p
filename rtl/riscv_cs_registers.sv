@@ -271,7 +271,6 @@ module riscv_cs_registers
   logic [MAX_N_PMP_ENTRIES-1:0] pmpcfg_we;
 
   // Performance Counter Signals
-  logic                          id_valid_q;
   logic [N_PERF_COUNTERS-1:0]    PCCR_in;  // input signals for each counter category
   logic [N_PERF_COUNTERS-1:0]    PCCR_inc, PCCR_inc_q; // should the counter be increased?
 
@@ -1053,14 +1052,14 @@ end //PULP_SECURE
 
   assign PCCR_in[0]  = 1'b1;                                          // cycle counter
   assign PCCR_in[1]  = id_valid_i & is_decoding_i;                    // instruction counter
-  assign PCCR_in[2]  = ld_stall_i & id_valid_q;                       // nr of load use hazards
-  assign PCCR_in[3]  = jr_stall_i & id_valid_q;                       // nr of jump register hazards
+  assign PCCR_in[2]  = id_valid_i & ld_stall_i;                       // nr of load use hazards
+  assign PCCR_in[3]  = id_valid_i & jr_stall_i;                       // nr of jump register hazards
   assign PCCR_in[4]  = imiss_i & (~pc_set_i);                         // cycles waiting for instruction fetches, excluding jumps and branches
   assign PCCR_in[5]  = mem_load_i;                                    // nr of loads
   assign PCCR_in[6]  = mem_store_i;                                   // nr of stores
-  assign PCCR_in[7]  = jump_i                     & id_valid_q;       // nr of jumps (unconditional)
-  assign PCCR_in[8]  = branch_i                   & id_valid_q;       // nr of branches (conditional)
-  assign PCCR_in[9]  = branch_i & branch_taken_i  & id_valid_q;       // nr of taken branches (conditional)
+  assign PCCR_in[7]  = jump_i                     & id_valid_i;       // nr of jumps (unconditional)
+  assign PCCR_in[8]  = branch_i                   & id_valid_i;       // nr of branches (conditional)
+  assign PCCR_in[9]  = branch_i & branch_taken_i  & id_valid_i;       // nr of taken branches (conditional)
   assign PCCR_in[10] = id_valid_i & is_decoding_i & is_compressed_i;  // compressed instruction counter
   assign PCCR_in[11] = pipeline_stall_i;                              //extra cycles from elw
 
@@ -1198,8 +1197,6 @@ end //PULP_SECURE
   begin
     if (rst_n == 1'b0)
     begin
-      id_valid_q <= 1'b0;
-
       PCER_q <= '0;
       PCMR_q <= 2'h3;
 
@@ -1211,8 +1208,6 @@ end //PULP_SECURE
     end
     else
     begin
-      id_valid_q <= id_valid_i;
-
       PCER_q <= PCER_n;
       PCMR_q <= PCMR_n;
 
