@@ -46,23 +46,28 @@ module riscv_register_file
   //Read port R1
   input  logic [ADDR_WIDTH-1:0]  raddr_a_i,
   output logic [DATA_WIDTH-1:0]  rdata_a_o,
+  output logic                   rtag_a_o,
 
   //Read port R2
   input  logic [ADDR_WIDTH-1:0]  raddr_b_i,
   output logic [DATA_WIDTH-1:0]  rdata_b_o,
+  output logic                   rtag_b_o,
 
   //Read port R3
   input  logic [ADDR_WIDTH-1:0]  raddr_c_i,
   output logic [DATA_WIDTH-1:0]  rdata_c_o,
+  output logic                   rtag_c_o,
 
   // Write port W1
   input  logic [ADDR_WIDTH-1:0]   waddr_a_i,
   input  logic [DATA_WIDTH-1:0]   wdata_a_i,
+  input  logic                    wtag_a_i,
   input  logic                    we_a_i,
 
   // Write port W2
   input  logic [ADDR_WIDTH-1:0]   waddr_b_i,
   input  logic [DATA_WIDTH-1:0]   wdata_b_i,
+  input  logic                    wtag_b_i,
   input  logic                    we_b_i
 );
 
@@ -74,11 +79,14 @@ module riscv_register_file
 
    // integer register file
    logic [DATA_WIDTH-1:0]         mem[NUM_WORDS];
+   logic                          mem_tag[NUM_WORDS];
    logic [NUM_TOT_WORDS-1:1]      waddr_onehot_a;
    logic [NUM_TOT_WORDS-1:1]      waddr_onehot_b, waddr_onehot_b_q;
    logic [NUM_TOT_WORDS-1:1]      mem_clocks;
    logic [DATA_WIDTH-1:0]         wdata_a_q;
+   logic                          wtag_a_q;
    logic [DATA_WIDTH-1:0]         wdata_b_q;
+   logic                          wtag_b_q;
 
    // masked write addresses
    logic [ADDR_WIDTH-1:0]         waddr_a;
@@ -88,6 +96,7 @@ module riscv_register_file
 
    // fp register file
    logic [DATA_WIDTH-1:0]         mem_fp[NUM_FP_WORDS];
+   logic                          mem_fp_tag[NUM_FP_WORDS];
 
    int                            unsigned i;
    int                            unsigned j;
@@ -102,13 +111,19 @@ module riscv_register_file
    //-- READ : Read address decoder RAD
    //-----------------------------------------------------------------------------
    if (FPU == 1 && Zfinx == 0) begin
-      assign rdata_a_o = raddr_a_i[5] ? mem_fp[raddr_a_i[4:0]] : mem[raddr_a_i[4:0]];
-      assign rdata_b_o = raddr_b_i[5] ? mem_fp[raddr_b_i[4:0]] : mem[raddr_b_i[4:0]];
-      assign rdata_c_o = raddr_c_i[5] ? mem_fp[raddr_c_i[4:0]] : mem[raddr_c_i[4:0]];
+      assign rdata_a_o = raddr_a_i[5] ? mem_fp    [raddr_a_i[4:0]] : mem    [raddr_a_i[4:0]];
+      assign rtag_a_o  = raddr_a_i[5] ? mem_fp_tag[raddr_a_i[4:0]] : mem_tag[raddr_a_i[4:0]];
+      assign rdata_b_o = raddr_b_i[5] ? mem_fp    [raddr_b_i[4:0]] : mem    [raddr_b_i[4:0]];
+      assign rtag_b_o  = raddr_b_i[5] ? mem_fp_tag[raddr_b_i[4:0]] : mem_tag[raddr_b_i[4:0]];
+      assign rdata_c_o = raddr_c_i[5] ? mem_fp    [raddr_c_i[4:0]] : mem    [raddr_c_i[4:0]];
+      assign rtag_c_o  = raddr_c_i[5] ? mem_fp_tag[raddr_c_i[4:0]] : mem_tag[raddr_c_i[4:0]];
    end else begin
-      assign rdata_a_o = mem[raddr_a_i[4:0]];
-      assign rdata_b_o = mem[raddr_b_i[4:0]];
-      assign rdata_c_o = mem[raddr_c_i[4:0]];
+      assign rdata_a_o = mem    [raddr_a_i[4:0]];
+      assign rtag_a_o  = mem_tag[raddr_a_i[4:0]];
+      assign rdata_b_o = mem    [raddr_b_i[4:0]];
+      assign rtag_b_o  = mem_tag[raddr_b_i[4:0]];
+      assign rdata_c_o = mem    [raddr_c_i[4:0]];
+      assign rtag_c_o  = mem_tag[raddr_c_i[4:0]];
    end
 
    //-----------------------------------------------------------------------------
@@ -128,15 +143,19 @@ module riscv_register_file
      begin : sample_waddr
         if (~rst_n) begin
            wdata_a_q        <= '0;
+           wtag_a_q         <= '0;
            wdata_b_q        <= '0;
+           wtag_b_q         <= '0;
            waddr_onehot_b_q <= '0;
         end else begin
-           if(we_a_i)
+           if(we_a_i) begin
              wdata_a_q <= wdata_a_i;
-
-           if(we_b_i)
+             wtag_a_q  <= wtag_a_i;
+           end
+           if(we_b_i) begin
              wdata_b_q <= wdata_b_i;
-
+             wtag_b_q  <= wtag_b_i;
+           end
            waddr_onehot_b_q <= waddr_onehot_b;
         end
      end
@@ -200,11 +219,14 @@ module riscv_register_file
      begin : latch_wdata
         // Note: The assignment has to be done inside this process or Modelsim complains about it
         mem[0] = '0;
+        mem_tag[0] = '0;
 
         for(k = 1; k < NUM_WORDS; k++)
           begin : w_WordIter
-             if(mem_clocks[k] == 1'b1)
-               mem[k] = waddr_onehot_b_q[k] ? wdata_b_q : wdata_a_q;
+             if(mem_clocks[k] == 1'b1) begin
+               mem    [k] = waddr_onehot_b_q[k] ? wdata_b_q : wdata_a_q;
+               mem_tag[k] = waddr_onehot_b_q[k] ? wtag_b_q  : wtag_a_q;
+             end
           end
      end
 
@@ -215,8 +237,10 @@ module riscv_register_file
         if (FPU == 1) begin
            for(l = 0; l < NUM_FP_WORDS; l++)
              begin : w_WordIter
-                if(mem_clocks[l+NUM_WORDS] == 1'b1)
-                  mem_fp[l] = waddr_onehot_b_q[l+NUM_WORDS] ? wdata_b_q : wdata_a_q;
+                if(mem_clocks[l+NUM_WORDS] == 1'b1) begin
+                  mem_fp    [l] = waddr_onehot_b_q[l+NUM_WORDS] ? wdata_b_q : wdata_a_q;
+                  mem_fp_tag[l] = waddr_onehot_b_q[l+NUM_WORDS] ? wtag_b_q  : wtag_a_q;
+                end
              end
         end
       end

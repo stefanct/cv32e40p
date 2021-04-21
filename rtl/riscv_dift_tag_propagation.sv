@@ -25,7 +25,7 @@ module dift_tag_propagation
     input  logic mult_en_i,
     input  logic csr_access_i,
     // operation
-    input  logic [ALU_OP_WIDTH] alu_operator_i,
+    input  logic [ALU_OP_WIDTH-1:0] alu_operator_i,
     input  logic [2:0] mult_operator_i,
     // output (resulting tag)
     output logic tag_result_o
@@ -38,18 +38,18 @@ module dift_tag_propagation
   // ALU tag propagation
   // TODO: implement different ALU classes
   // TODO: clarify when to use which operands (a, b, c)
-  tag_result_alu = alu_operand_a_tag_i | alu_operand_b_tag_i | alu_operand_c_tag_i;
+  assign tag_result_alu = alu_operand_a_tag_i | alu_operand_b_tag_i | alu_operand_c_tag_i;
   
   // MULT tag propagation
-  tag_result_mult = mult_operand_a_tag_i | mult_operand_b_tag_i | mult_operand_c_tag_i;
+  assign tag_result_mult = mult_operand_a_tag_i | mult_operand_b_tag_i | mult_operand_c_tag_i;
   
   // MULT_DOT tag propagation
-  tag_result_mult_dot = mult_dot_op_a_tag_i | mult_dot_op_b_tag_i | mult_dot_op_c_tag_i;
+  assign tag_result_mult_dot = mult_dot_op_a_tag_i | mult_dot_op_b_tag_i | mult_dot_op_c_tag_i;
   
   // result output MUX
   always_comb
   begin
-    tag_result_o = 1b'0;
+    tag_result_o = 1'b0;
 
     // APU single cycle operations, and multicycle operations (>2cycles) are written back on ALU port
     if (alu_en_i) begin

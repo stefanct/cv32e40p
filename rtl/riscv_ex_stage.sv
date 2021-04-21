@@ -275,10 +275,7 @@ module riscv_ex_stage
   // TAG PROPAGATION LOGIC  //
   ////////////////////////////
   dift_tag_propagation
-  #(
-    .ALU_OP_WIDTH( ALU_OP_WIDTH )
-    )
-   dift_tag_propagation_i
+  dift_tag_propagation_i
   (
     // operand's tag bits (alu operands, mult operands, mult_dot operands)
     .alu_operand_a_tag_i  ( alu_operand_a_tag_i  ),

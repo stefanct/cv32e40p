@@ -1102,7 +1102,9 @@ module riscv_id_stage
      .WEN_T       (                     ), // PLEASE CONNECT ME; Synthesis will remove me if unconnected
      .A_T         (                     ), // PLEASE CONNECT ME; Synthesis will remove me if unconnected
      .D_T         (                     ), // PLEASE CONNECT ME; Synthesis will remove me if unconnected
-     .Q_T         (                     )
+     .DTAG_T      (                     ),
+     .Q_T         (                     ),
+     .QTAG_T      (                     )
   );
 
 
