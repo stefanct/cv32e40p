@@ -57,6 +57,8 @@ parameter OPCODE_LOAD_FP   = 7'h07;
 // parameter OPCODE_CUST0     = 7'h0b
 // parameter OPCODE_CUST1     = 7'h2b
 
+parameter OPCODE_DIFT       = 7'h6b;
+
 // PULP custom
 parameter OPCODE_LOAD_POST  = 7'h0b;
 parameter OPCODE_STORE_POST = 7'h2b;
@@ -185,6 +187,15 @@ parameter MUL_H     = 3'b110;
 parameter VEC_MODE32 = 2'b00;
 parameter VEC_MODE16 = 2'b10;
 parameter VEC_MODE8  = 2'b11;
+
+
+
+// DIFT OPERATIONS
+
+parameter DIFT_OP_TAGSET = 3'b000;
+parameter DIFT_OP_TAGRD  = 3'b001;
+
+
 
 /////////////////////////////////////////////////////////
 //    ____ ____    ____            _     _             //

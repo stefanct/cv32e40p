@@ -123,6 +123,16 @@ module riscv_ex_stage
   output logic                        apu_busy_o,
   output logic                        apu_ready_wb_o,
 
+  // DIFT signals
+  input  logic        dift_en_i,
+  input  logic [ 2:0] dift_operator_i,
+  input  logic [31:0] dift_operand_a_i,
+  input  logic        dift_operand_a_tag_i,
+  input  logic [31:0] dift_operand_b_i,
+  input  logic        dift_operand_b_tag_i,
+  input  logic [31:0] dift_operand_c_i,
+  input  logic        dift_operand_c_tag_i,
+
   // apu-interconnect
   // handshake signals
   output logic                       apu_master_req_o,
@@ -180,7 +190,9 @@ module riscv_ex_stage
   logic [31:0]    alu_result;
   logic [31:0]    mult_result;
   logic           alu_cmp_result;
-  logic           tag_result;
+  logic [31:0]    dift_result;
+  logic           dift_result_tag;
+  logic           tag_propagation_result;
 
   logic           regfile_we_lsu;
   logic [5:0]     regfile_waddr_lsu;
@@ -210,7 +222,7 @@ module riscv_ex_stage
   always_comb
   begin
     regfile_alu_wdata_fw_o = '0;
-    regfile_alu_wtag_fw_o  = 1'b0;  // not sure why/if this is needed
+    regfile_alu_wtag_fw_o  = '0;
     regfile_alu_waddr_fw_o = '0;
     regfile_alu_we_fw_o    = '0;
     wb_contention          = 1'b0;
@@ -228,7 +240,7 @@ module riscv_ex_stage
     end else begin
       regfile_alu_we_fw_o      = regfile_alu_we_i & ~apu_en_i; // private fpu incomplete?
       regfile_alu_waddr_fw_o   = regfile_alu_waddr_i;
-      regfile_alu_wtag_fw_o    = tag_result;
+      regfile_alu_wtag_fw_o    = tag_propagation_result;
       if (alu_en_i) begin
         regfile_alu_wdata_fw_o = alu_result;
       end
@@ -238,6 +250,10 @@ module riscv_ex_stage
       if (csr_access_i) begin
         regfile_alu_wdata_fw_o = csr_rdata_i;
       end
+      if (dift_en_i) begin
+        regfile_alu_wdata_fw_o = dift_result;
+        regfile_alu_wtag_fw_o  = dift_result_tag;
+      end;
     end
   end
 
@@ -271,8 +287,9 @@ module riscv_ex_stage
 
 
   ////////////////////////////
-  //         DIFT           //
-  // TAG PROPAGATION LOGIC  //
+  //       DIFT UNIT        //
+  //    Tag Propagation     //
+  //    Tag Manipulation    //
   ////////////////////////////
   dift_tag_propagation
   dift_tag_propagation_i
@@ -295,7 +312,22 @@ module riscv_ex_stage
     .alu_operator_i       ( alu_operator_i       ),
     .mult_operator_i      ( mult_operator_i      ),
     // output (resulting tag)
-    .tag_result_o         ( tag_result           )
+    .tag_result_o         ( tag_propagation_result )
+  );
+
+  riscv_dift_tag_manipulation
+  dift_tag_manipulation_i
+  (
+    .operator_i           ( dift_operator_i      ),
+    .operand_a_i          ( dift_operand_a_i     ),
+    .operand_b_i          ( dift_operand_b_i     ),
+    .operand_c_i          ( dift_operand_c_i     ),
+    .operand_a_tag_i      ( dift_operand_a_tag_i ),
+    .operand_b_tag_i      ( dift_operand_b_tag_i ),
+    .operand_c_tag_i      ( dift_operand_c_tag_i ),
+
+    .result_o             ( dift_result          ),
+    .result_tag_o         ( dift_result_tag      )
   );
     
 
@@ -605,7 +637,7 @@ module riscv_ex_stage
   // depend on ex_ready.
   assign ex_ready_o = (~apu_stall & alu_ready & mult_ready & lsu_ready_ex_i
                        & wb_ready_i & ~wb_contention & fpu_ready) | (branch_in_ex_i);
-  assign ex_valid_o = (apu_valid | alu_en_i | mult_en_i | csr_access_i | lsu_en_i)
+  assign ex_valid_o = (apu_valid | alu_en_i | mult_en_i | dift_en_i | csr_access_i | lsu_en_i)
                        & (alu_ready & mult_ready & lsu_ready_ex_i & wb_ready_i);
 
 endmodule

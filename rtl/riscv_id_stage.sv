@@ -177,6 +177,16 @@ module riscv_id_stage
     input  logic                       apu_busy_i,
     input  logic [C_RM-1:0]            frm_i,
 
+    // DIFT
+    output logic        dift_en_ex_o,
+    output logic [ 2:0] dift_operator_ex_o,
+    output logic [31:0] dift_operand_a_ex_o,
+    output logic        dift_operand_a_tag_ex_o,
+    output logic [31:0] dift_operand_b_ex_o,
+    output logic        dift_operand_b_tag_ex_o,
+    output logic [31:0] dift_operand_c_ex_o,
+    output logic        dift_operand_c_tag_ex_o,
+
     // CSR ID/EX
     output logic        csr_access_ex_o,
     output logic [1:0]  csr_op_ex_o,
@@ -388,6 +398,10 @@ module riscv_id_stage
   logic [WAPUTYPE-1:0]        apu_flags_src;
   logic                       apu_stall;
   logic [2:0]                 fp_rnd_mode;
+
+  // DIFT signals
+  logic        dift_en;
+  logic [2:0]  dift_operator;
 
   // Register Write Control
   logic        regfile_we_id;
@@ -1210,6 +1224,10 @@ module riscv_id_stage
     .apu_flags_src_o                 ( apu_flags_src             ),
     .fp_rnd_mode_o                   ( fp_rnd_mode               ),
 
+    // DIFT unit
+    .dift_en_o                       ( dift_en                   ),
+    .dift_operator_o                 ( dift_operator             ),
+
     // Register file control signals
     .regfile_mem_we_o                ( regfile_we_id             ),
     .regfile_alu_we_o                ( regfile_alu_we_id         ),
@@ -1555,6 +1573,15 @@ module riscv_id_stage
       apu_flags_ex_o              <= '0;
       apu_waddr_ex_o              <= '0;
 
+      dift_en_ex_o                <= '0;
+      dift_operator_ex_o          <= '0;
+      dift_operand_a_ex_o         <= '0;
+      dift_operand_a_tag_ex_o     <= '0;
+      dift_operand_b_ex_o         <= '0;
+      dift_operand_b_tag_ex_o     <= '0;
+      dift_operand_c_ex_o         <= '0;
+      dift_operand_c_tag_ex_o     <= '0;
+
 
       regfile_waddr_ex_o          <= 6'b0;
       regfile_we_ex_o             <= 1'b0;
@@ -1670,6 +1697,18 @@ module riscv_id_stage
           apu_flags_ex_o            <= apu_flags;
           apu_waddr_ex_o            <= apu_waddr;
         end
+
+        // DIFT pipeline
+        dift_en_ex_o                <= dift_en;
+        if (dift_en) begin
+          dift_operator_ex_o        <= dift_operator;
+          dift_operand_a_ex_o       <= alu_operand_a;
+          dift_operand_a_tag_ex_o   <= alu_operand_a_tag;
+          dift_operand_b_ex_o       <= alu_operand_b;
+          dift_operand_b_tag_ex_o   <= alu_operand_b_tag;
+          dift_operand_c_ex_o       <= alu_operand_c;
+          dift_operand_c_tag_ex_o   <= alu_operand_c_tag;
+        end;
 
         regfile_we_ex_o             <= regfile_we_id;
         if (regfile_we_id) begin

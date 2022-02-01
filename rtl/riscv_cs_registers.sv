@@ -143,7 +143,11 @@ module riscv_cs_registers
   input  logic                 mem_load_i,        // load from memory in this cycle
   input  logic                 mem_store_i,       // store to memory in this cycle
 
-  input  logic [N_EXT_CNT-1:0] ext_counters_i
+  input  logic [N_EXT_CNT-1:0] ext_counters_i,
+
+  // DIFT extension
+  output logic [16:0]     dift_tpr_o,     // directly output the TPR (Tag Propagation Register) content
+  output logic [21:0]     dift_tcr_o      // directly output the TCR (Tag Check Register) content
 );
 
   localparam N_APU_CNT       = (APU==1) ? 4 : 0;
@@ -285,6 +289,10 @@ module riscv_cs_registers
   logic                          is_pcer;
   logic                          is_pcmr;
 
+  // DIFT signals
+  logic [31:0] dift_tpr_q, dift_tpr_n;
+  logic [31:0] dift_tcr_q, dift_tcr_n;
+
 
   assign is_irq = csr_cause_i[5];
 
@@ -382,6 +390,9 @@ if(PULP_SECURE==1) begin
       12'h042: csr_rdata_int = {ucause_q[5], 26'h0, ucause_q[4:0]};
       // current priv level (not official)
       12'hC10: csr_rdata_int = {30'h0, priv_lvl_q};
+      // DIFT registers
+      12'h020: csr_rdata_int = dift_tpr_q;
+      12'h021: csr_rdata_int = dift_tcr_q;
       default:
         csr_rdata_int = '0;
     endcase
@@ -445,6 +456,9 @@ end else begin //PULP_SECURE == 0
       12'h014: csr_rdata_int = {21'b0, cluster_id_i[5:0], 1'b0, core_id_i[3:0]};
       // current priv level (not official)
       12'hC10: csr_rdata_int = {30'h0, priv_lvl_q};
+      // DIFT registers
+      12'h020: csr_rdata_int = dift_tpr_q;
+      12'h021: csr_rdata_int = dift_tcr_q;
       default:
         csr_rdata_int = '0;
     endcase
@@ -479,6 +493,9 @@ if(PULP_SECURE==1) begin
     pmp_reg_n.pmpcfg_packed  = pmp_reg_q.pmpcfg_packed;
     pmpaddr_we               = '0;
     pmpcfg_we                = '0;
+
+    dift_tpr_n               = dift_tpr_q;
+    dift_tcr_n               = dift_tcr_q;
 
     if (FPU == 1) if (fflags_we_i) fflags_n = fflags_i | fflags_q;
 
@@ -590,6 +607,14 @@ if(PULP_SECURE==1) begin
       end
       // ucause: exception cause
       12'h042: if (csr_we_int) ucause_n = {csr_wdata_int[31], csr_wdata_int[4:0]};
+
+      // DIFT registers
+      12'h020: if (csr_we_int) begin
+        dift_tpr_n = csr_wdata_int;
+       end
+      12'h021: if (csr_we_int) begin
+        dift_tcr_n = csr_wdata_int;
+      end
     endcase
 
     // exception controller gets priority over other writes
@@ -738,6 +763,9 @@ end else begin //PULP_SECURE == 0
     pmpaddr_we               = '0;
     pmpcfg_we                = '0;
 
+    dift_tpr_n               = dift_tpr_q;
+    dift_tcr_n               = dift_tcr_q;
+
 
     if (FPU == 1) if (fflags_we_i) fflags_n = fflags_i | fflags_q;
 
@@ -812,6 +840,14 @@ end else begin //PULP_SECURE == 0
       HWLoop1_START: if (csr_we_int) begin hwlp_we_o = 3'b001; hwlp_regid_o = 1'b1; end
       HWLoop1_END: if (csr_we_int) begin hwlp_we_o = 3'b010; hwlp_regid_o = 1'b1; end
       HWLoop1_COUNTER: if (csr_we_int) begin hwlp_we_o = 3'b100; hwlp_regid_o = 1'b1; end
+
+      // DIFT registers
+      12'h020: if (csr_we_int) begin
+        dift_tpr_n = csr_wdata_int;
+       end
+      12'h021: if (csr_we_int) begin
+        dift_tcr_n = csr_wdata_int;
+      end
     endcase
 
     // exception controller gets priority over other writes
@@ -917,6 +953,9 @@ end //PULP_SECURE
   assign debug_ebreakm_o      = dcsr_q.ebreakm;
   assign debug_ebreaku_o      = dcsr_q.ebreaku;
 
+  assign dift_tpr_o       = dift_tpr_q;
+  assign dift_tcr_o       = dift_tcr_q;
+
 
 
   generate
@@ -1009,6 +1048,8 @@ end //PULP_SECURE
       dscratch0_q <= '0;
       dscratch1_q <= '0;
       mscratch_q  <= '0;
+      dift_tpr_q  <= '0;
+      dift_tcr_q  <= '0;
     end
     else
     begin
@@ -1038,6 +1079,8 @@ end //PULP_SECURE
       dscratch0_q<= dscratch0_n;
       dscratch1_q<= dscratch1_n;
       mscratch_q <= mscratch_n;
+      dift_tpr_q <= dift_tpr_n;
+      dift_tcr_q <= dift_tcr_n;
     end
   end
 

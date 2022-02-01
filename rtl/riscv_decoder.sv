@@ -122,6 +122,10 @@ module riscv_decoder
   output logic [WAPUTYPE-1:0] apu_flags_src_o,
   output logic [2:0]          fp_rnd_mode_o,
 
+  // DIFT
+  output logic                dift_en_o,
+  output logic [2:0]          dift_operator_o,
+
   // register file related signals
   output logic        regfile_mem_we_o,        // write enable for regfile
   output logic        regfile_alu_we_o,        // write enable for 2nd regfile port
@@ -187,6 +191,7 @@ module riscv_decoder
   logic       mult_int_en;
   logic       mult_dot_en;
   logic       apu_en;
+  logic       dift_en;
 
   // this instruction needs floating-point rounding-mode verification
   logic check_fprm;
@@ -252,6 +257,9 @@ module riscv_decoder
     regfile_alu_waddr_sel_o     = 1'b1;
 
     prepost_useincr_o           = 1'b1;
+
+    dift_en                     = 1'b0;
+    dift_operator_o             = '0;
 
     hwloop_we                   = 3'b0;
     hwloop_target_mux_sel_o     = 1'b0;
@@ -2364,6 +2372,40 @@ module riscv_decoder
       end
 
 
+      // DIFT instructions (non standard extension; using a reserved opcode)
+      OPCODE_DIFT: begin
+        alu_en_o            = 1'b0;     // use DIFT unit instead of ALU
+        dift_en             = 1'b1;     // activate DIFT unit for processing
+        regfile_alu_we      = 1'b1;     // activate writing of DIFT unit's output to register file
+        rega_used_o         = 1'b1;     // operand A: register A (rs1)
+        alu_op_b_mux_sel_o  = OP_B_IMM; // operand B: immediate (I type)
+        imm_b_mux_sel_o     = IMMB_I;
+
+        unique case (instr_rdata_i[14:12])
+          3'b000: // TAG.SET
+          begin
+             dift_operator_o  = DIFT_OP_TAGSET;
+             // pass write data through ALU operand c
+             regc_used_o      = 1'b1;
+             regc_mux_o       = REGC_RD;
+          end
+
+          3'b001: // TAG.RD
+          begin
+            dift_operator_o = DIFT_OP_TAGRD;
+          end
+
+          default:
+          begin
+            dift_operator_o = '0;
+            regc_used_o     = '0;
+            regc_mux_o      = REGC_ZERO;
+            illegal_insn_o  = 1'b1;
+          end
+        endcase
+      end
+
+
       ///////////////////////////////////////////////
       //  _   ___        ___     ___   ___  ____   //
       // | | | \ \      / / |   / _ \ / _ \|  _ \  //
@@ -2464,6 +2506,7 @@ module riscv_decoder
   assign apu_en_o          = (deassert_we_i) ? 1'b0          : apu_en;
   assign mult_int_en_o     = (deassert_we_i) ? 1'b0          : mult_int_en;
   assign mult_dot_en_o     = (deassert_we_i) ? 1'b0          : mult_dot_en;
+  assign dift_en_o         = (deassert_we_i) ? 1'b0          : dift_en;   // TODO DIFT: not sure if this is needed or not
   assign regfile_mem_we_o  = (deassert_we_i) ? 1'b0          : regfile_mem_we;
   assign regfile_alu_we_o  = (deassert_we_i) ? 1'b0          : regfile_alu_we;
   assign data_req_o        = (deassert_we_i) ? 1'b0          : data_req;

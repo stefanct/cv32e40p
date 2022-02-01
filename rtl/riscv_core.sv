@@ -240,6 +240,16 @@ module riscv_core
   logic                        perf_apu_dep;
   logic                        perf_apu_wb;
 
+  // DIFT
+  logic        dift_en_ex;
+  logic [ 2:0] dift_operator_ex;
+  logic [31:0] dift_operand_a_ex;
+  logic [31:0] dift_operand_b_ex;
+  logic [31:0] dift_operand_c_ex;
+  logic        dift_operand_a_tag_ex;
+  logic        dift_operand_b_tag_ex;
+  logic        dift_operand_c_tag_ex;
+
   // Register Write Control
   logic [5:0]  regfile_waddr_ex;
   logic        regfile_we_ex;
@@ -691,6 +701,16 @@ module riscv_core
     .apu_perf_dep_o               ( perf_apu_dep            ),
     .apu_busy_i                   ( apu_busy                ),
 
+    // DIFT
+    .dift_en_ex_o                 ( dift_en_ex              ),
+    .dift_operator_ex_o           ( dift_operator_ex        ),
+    .dift_operand_a_ex_o          ( dift_operand_a_ex       ),
+    .dift_operand_a_tag_ex_o      ( dift_operand_a_tag_ex   ),
+    .dift_operand_b_ex_o          ( dift_operand_b_ex       ),
+    .dift_operand_b_tag_ex_o      ( dift_operand_b_tag_ex   ),
+    .dift_operand_c_ex_o          ( dift_operand_c_ex       ),
+    .dift_operand_c_tag_ex_o      ( dift_operand_c_tag_ex   ),
+
     // CSR ID/EX
     .csr_access_ex_o              ( csr_access_ex        ),
     .csr_op_ex_o                  ( csr_op_ex            ),
@@ -864,6 +884,16 @@ module riscv_core
     .apu_perf_wb_o              ( perf_apu_wb                  ),
     .apu_ready_wb_o             ( apu_ready_wb                 ),
     .apu_busy_o                 ( apu_busy                     ),
+
+    // DIFT
+    .dift_en_i                  ( dift_en_ex                   ),
+    .dift_operator_i            ( dift_operator_ex             ),
+    .dift_operand_a_i           ( dift_operand_a_ex            ),
+    .dift_operand_a_tag_i       ( dift_operand_a_tag_ex        ),
+    .dift_operand_b_i           ( dift_operand_b_ex            ),
+    .dift_operand_b_tag_i       ( dift_operand_b_tag_ex        ),
+    .dift_operand_c_i           ( dift_operand_c_ex            ),
+    .dift_operand_c_tag_i       ( dift_operand_c_tag_ex        ),
 
     // apu-interconnect
     // handshake signals
@@ -1087,7 +1117,11 @@ module riscv_core
     .mem_load_i              ( data_req_o & data_gnt_i & (~data_we_o) ),
     .mem_store_i             ( data_req_o & data_gnt_i & data_we_o    ),
 
-    .ext_counters_i          ( ext_perf_counters_i                    )
+    .ext_counters_i          ( ext_perf_counters_i                    ),
+
+    // DIFT configuration signals
+    .dift_tpr_o              (),   // not used yet
+    .dift_tcr_o              ()    // not used yet
   );
 
   //  CSR access
