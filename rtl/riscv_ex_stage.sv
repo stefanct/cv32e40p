@@ -33,6 +33,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 `include "apu_macros.sv"
+`include "riscv_dift_config.sv"
 
 import apu_core_package::*;
 import riscv_defines::*;
@@ -56,11 +57,13 @@ module riscv_ex_stage
   // ALU signals from ID stage
   input  logic [ALU_OP_WIDTH-1:0] alu_operator_i,
   input  logic [31:0] alu_operand_a_i,
-  input  logic        alu_operand_a_tag_i,
   input  logic [31:0] alu_operand_b_i,
-  input  logic        alu_operand_b_tag_i,
   input  logic [31:0] alu_operand_c_i,
-  input  logic        alu_operand_c_tag_i,
+`ifdef DIFT_ACTIVE
+  input  dift_tag_t   alu_operand_a_tag_i,
+  input  dift_tag_t   alu_operand_b_tag_i,
+  input  dift_tag_t   alu_operand_c_tag_i,
+`endif
   input  logic        alu_en_i,
   input  logic [ 4:0] bmask_a_i,
   input  logic [ 4:0] bmask_b_i,
@@ -73,22 +76,26 @@ module riscv_ex_stage
   // Multiplier signals
   input  logic [ 2:0] mult_operator_i,
   input  logic [31:0] mult_operand_a_i,
-  input  logic        mult_operand_a_tag_i,
   input  logic [31:0] mult_operand_b_i,
-  input  logic        mult_operand_b_tag_i,
   input  logic [31:0] mult_operand_c_i,
-  input  logic        mult_operand_c_tag_i,
+`ifdef DIFT_ACTIVE
+  input  dift_tag_t   mult_operand_a_tag_i,
+  input  dift_tag_t   mult_operand_b_tag_i,
+  input  dift_tag_t   mult_operand_c_tag_i,
+`endif
   input  logic        mult_en_i,
   input  logic        mult_sel_subword_i,
   input  logic [ 1:0] mult_signed_mode_i,
   input  logic [ 4:0] mult_imm_i,
 
   input  logic [31:0] mult_dot_op_a_i,
-  input  logic        mult_dot_op_a_tag_i,
   input  logic [31:0] mult_dot_op_b_i,
-  input  logic        mult_dot_op_b_tag_i,
   input  logic [31:0] mult_dot_op_c_i,
-  input  logic        mult_dot_op_c_tag_i,
+`ifdef DIFT_ACTIVE
+  input  dift_tag_t   mult_dot_op_a_tag_i,
+  input  dift_tag_t   mult_dot_op_b_tag_i,
+  input  dift_tag_t   mult_dot_op_c_tag_i,
+`endif
   input  logic [ 1:0] mult_dot_signed_i,
   input  logic        mult_is_clpx_i,
   input  logic [ 1:0] mult_clpx_shift_i,
@@ -124,14 +131,16 @@ module riscv_ex_stage
   output logic                        apu_ready_wb_o,
 
   // DIFT signals
+`ifdef DIFT_ACTIVE
   input  logic        dift_en_i,
   input  logic [ 2:0] dift_operator_i,
   input  logic [31:0] dift_operand_a_i,
-  input  logic        dift_operand_a_tag_i,
   input  logic [31:0] dift_operand_b_i,
-  input  logic        dift_operand_b_tag_i,
   input  logic [31:0] dift_operand_c_i,
-  input  logic        dift_operand_c_tag_i,
+  input  dift_tag_t   dift_operand_a_tag_i,
+  input  dift_tag_t   dift_operand_b_tag_i,
+  input  dift_tag_t   dift_operand_c_tag_i,
+`endif
 
   // apu-interconnect
   // handshake signals
@@ -147,7 +156,9 @@ module riscv_ex_stage
 
   input  logic        lsu_en_i,
   input  logic [31:0] lsu_rdata_i,
-  input  logic        lsu_rtag_i,
+`ifdef DIFT_ACTIVE
+  input  dift_tag_t   lsu_rtag_i,
+`endif
 
   // input from ID stage
   input  logic        branch_in_ex_i,
@@ -166,13 +177,17 @@ module riscv_ex_stage
   output logic [5:0]  regfile_waddr_wb_o,
   output logic        regfile_we_wb_o,
   output logic [31:0] regfile_wdata_wb_o,
-  output logic        regfile_wtag_wb_o,
+`ifdef DIFT_ACTIVE
+  output dift_tag_t   regfile_wtag_wb_o,
+`endif
 
   // Forwarding ports : to ID stage
   output logic  [5:0] regfile_alu_waddr_fw_o,
   output logic        regfile_alu_we_fw_o,
   output logic [31:0] regfile_alu_wdata_fw_o,    // forward to RF and ID/EX pipe, ALU & MUL
-  output logic        regfile_alu_wtag_fw_o,     // forward to RF and ID/EX pipe, ALU & MUL
+`ifdef DIFT_ACTIVE
+  output dift_tag_t   regfile_alu_wtag_fw_o,     // forward to RF and ID/EX pipe, ALU & MUL
+`endif
 
   // To IF: Jump and branch target and decision
   output logic [31:0] jump_target_o,
@@ -190,9 +205,13 @@ module riscv_ex_stage
   logic [31:0]    alu_result;
   logic [31:0]    mult_result;
   logic           alu_cmp_result;
+  
+`ifdef DIFT_ACTIVE
   logic [31:0]    dift_result;
-  logic           dift_result_tag;
-  logic           tag_propagation_result;
+  dift_tag_t      dift_result_tag;
+
+  dift_tag_t      tag_propagation_result;
+`endif
 
   logic           regfile_we_lsu;
   logic [5:0]     regfile_waddr_lsu;
@@ -222,7 +241,9 @@ module riscv_ex_stage
   always_comb
   begin
     regfile_alu_wdata_fw_o = '0;
+`ifdef DIFT_ACTIVE
     regfile_alu_wtag_fw_o  = '0;
+`endif
     regfile_alu_waddr_fw_o = '0;
     regfile_alu_we_fw_o    = '0;
     wb_contention          = 1'b0;
@@ -232,7 +253,9 @@ module riscv_ex_stage
       regfile_alu_we_fw_o    = 1'b1;
       regfile_alu_waddr_fw_o = apu_waddr;
       regfile_alu_wdata_fw_o = apu_result;
+`ifdef DIFT_ACTIVE
       regfile_alu_wtag_fw_o  = 1'b1;  // TODO DIFT: APU result is ALWAYS tainted... is this okay???
+`endif
 
       if(regfile_alu_we_i & ~apu_en_i) begin
         wb_contention = 1'b1;
@@ -240,7 +263,9 @@ module riscv_ex_stage
     end else begin
       regfile_alu_we_fw_o      = regfile_alu_we_i & ~apu_en_i; // private fpu incomplete?
       regfile_alu_waddr_fw_o   = regfile_alu_waddr_i;
+`ifdef DIFT_ACTIVE
       regfile_alu_wtag_fw_o    = tag_propagation_result;
+`endif
       if (alu_en_i) begin
         regfile_alu_wdata_fw_o = alu_result;
       end
@@ -250,10 +275,12 @@ module riscv_ex_stage
       if (csr_access_i) begin
         regfile_alu_wdata_fw_o = csr_rdata_i;
       end
+`ifdef DIFT_ACTIVE
       if (dift_en_i) begin
         regfile_alu_wdata_fw_o = dift_result;
         regfile_alu_wtag_fw_o  = dift_result_tag;
       end;
+`endif
     end
   end
 
@@ -263,7 +290,9 @@ module riscv_ex_stage
     regfile_we_wb_o    = 1'b0;
     regfile_waddr_wb_o = regfile_waddr_lsu;
     regfile_wdata_wb_o = lsu_rdata_i;
+`ifdef DIFT_ACTIVE
     regfile_wtag_wb_o  = lsu_rtag_i;
+`endif
     wb_contention_lsu  = 1'b0;
 
     if (regfile_we_lsu) begin
@@ -277,7 +306,9 @@ module riscv_ex_stage
       regfile_we_wb_o    = 1'b1;
       regfile_waddr_wb_o = apu_waddr;
       regfile_wdata_wb_o = apu_result;
+`ifdef DIFT_ACTIVE
       regfile_wtag_wb_o  = 1'b1;  // TODO DIFT: APU result is ALWAYS tainted... is this okay???
+`endif
     end
   end
 
@@ -291,6 +322,8 @@ module riscv_ex_stage
   //    Tag Propagation     //
   //    Tag Manipulation    //
   ////////////////////////////
+`ifdef DIFT_ACTIVE
+
   dift_tag_propagation
   dift_tag_propagation_i
   (
@@ -329,6 +362,8 @@ module riscv_ex_stage
     .result_o             ( dift_result          ),
     .result_tag_o         ( dift_result_tag      )
   );
+
+`endif
     
 
   ////////////////////////////
@@ -637,7 +672,12 @@ module riscv_ex_stage
   // depend on ex_ready.
   assign ex_ready_o = (~apu_stall & alu_ready & mult_ready & lsu_ready_ex_i
                        & wb_ready_i & ~wb_contention & fpu_ready) | (branch_in_ex_i);
+`ifdef DIFT_ACTIVE
   assign ex_valid_o = (apu_valid | alu_en_i | mult_en_i | dift_en_i | csr_access_i | lsu_en_i)
                        & (alu_ready & mult_ready & lsu_ready_ex_i & wb_ready_i);
+`else
+  assign ex_valid_o = (apu_valid | alu_en_i | mult_en_i | csr_access_i | lsu_en_i)
+                       & (alu_ready & mult_ready & lsu_ready_ex_i & wb_ready_i);
+`endif
 
 endmodule

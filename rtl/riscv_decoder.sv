@@ -26,6 +26,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 `include "apu_macros.sv"
+`include "riscv_dift_config.sv"
 
 import riscv_defines::*;
 
@@ -122,9 +123,11 @@ module riscv_decoder
   output logic [WAPUTYPE-1:0] apu_flags_src_o,
   output logic [2:0]          fp_rnd_mode_o,
 
+`ifdef DIFT_ACTIVE
   // DIFT
   output logic                dift_en_o,
   output logic [2:0]          dift_operator_o,
+`endif
 
   // register file related signals
   output logic        regfile_mem_we_o,        // write enable for regfile
@@ -191,7 +194,9 @@ module riscv_decoder
   logic       mult_int_en;
   logic       mult_dot_en;
   logic       apu_en;
+`ifdef DIFT_ACTIVE
   logic       dift_en;
+`endif
 
   // this instruction needs floating-point rounding-mode verification
   logic check_fprm;
@@ -258,8 +263,10 @@ module riscv_decoder
 
     prepost_useincr_o           = 1'b1;
 
+`ifdef DIFT_ACTIVE
     dift_en                     = 1'b0;
     dift_operator_o             = '0;
+`endif
 
     hwloop_we                   = 3'b0;
     hwloop_target_mux_sel_o     = 1'b0;
@@ -2372,6 +2379,7 @@ module riscv_decoder
       end
 
 
+`ifdef DIFT_ACTIVE
       // DIFT instructions (non standard extension; using a reserved opcode)
       OPCODE_DIFT: begin
         alu_en_o            = 1'b0;     // use DIFT unit instead of ALU
@@ -2404,6 +2412,7 @@ module riscv_decoder
           end
         endcase
       end
+`endif
 
 
       ///////////////////////////////////////////////
@@ -2506,7 +2515,9 @@ module riscv_decoder
   assign apu_en_o          = (deassert_we_i) ? 1'b0          : apu_en;
   assign mult_int_en_o     = (deassert_we_i) ? 1'b0          : mult_int_en;
   assign mult_dot_en_o     = (deassert_we_i) ? 1'b0          : mult_dot_en;
+`ifdef DIFT_ACTIVE
   assign dift_en_o         = (deassert_we_i) ? 1'b0          : dift_en;   // TODO DIFT: not sure if this is needed or not
+`endif
   assign regfile_mem_we_o  = (deassert_we_i) ? 1'b0          : regfile_mem_we;
   assign regfile_alu_we_o  = (deassert_we_i) ? 1'b0          : regfile_alu_we;
   assign data_req_o        = (deassert_we_i) ? 1'b0          : data_req;

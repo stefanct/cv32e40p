@@ -943,6 +943,10 @@ module riscv_tracer (
         INSTR_WFI:        trace.printMnemonic("wfi");
 
         INSTR_DRET:       trace.printMnemonic("dret");
+        
+        // DIFT
+        INSTR_TAGSET:     trace.printIuInstr("tag.set");
+        INSTR_TAGRD:      trace.printIuInstr("tag.rd");
 
         // RV32M
         INSTR_PMUL:       trace.printRInstr("mul");

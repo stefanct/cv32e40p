@@ -125,6 +125,10 @@ parameter INSTR_MRET     =  { 12'b001100000010, 13'b0, OPCODE_SYSTEM };
 parameter INSTR_DRET     =  { 12'b011110110010, 13'b0, OPCODE_SYSTEM };
 parameter INSTR_WFI      =  { 12'b000100000101, 13'b0, OPCODE_SYSTEM };
 
+// DIFT
+parameter INSTR_TAGSET   =  { 17'b?, 3'b000, 5'b?, OPCODE_DIFT };
+parameter INSTR_TAGRD    =  { 17'b?, 3'b001, 5'b?, OPCODE_DIFT };
+
 // RV32M
 parameter INSTR_DIV      =  { 7'b0000001, 10'b?, 3'b100, 5'b?, OPCODE_OP };
 parameter INSTR_DIVU     =  { 7'b0000001, 10'b?, 3'b101, 5'b?, OPCODE_OP };

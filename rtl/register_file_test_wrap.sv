@@ -32,6 +32,8 @@
 // ADDRESS 0 is NOT WRITABLE !!!!!!!!!!!!!!!!!!!!
 //
 
+`include "riscv_dift_config.sv"
+
 module register_file_test_wrap
 #(
    parameter ADDR_WIDTH    = 5,
@@ -49,28 +51,38 @@ module register_file_test_wrap
    //Read port R1
    input  logic [ADDR_WIDTH-1:0]  raddr_a_i,
    output logic [DATA_WIDTH-1:0]  rdata_a_o,
-   output logic                   rtag_a_o,
+`ifdef DIFT_ACTIVE
+   output dift_tag_t              rtag_a_o,
+`endif
 
    //Read port R2
    input  logic [ADDR_WIDTH-1:0]  raddr_b_i,
    output logic [DATA_WIDTH-1:0]  rdata_b_o,
-   output logic                   rtag_b_o,
+`ifdef DIFT_ACTIVE
+   output dift_tag_t              rtag_b_o,
+`endif
 
    //Read port R3
    input  logic [ADDR_WIDTH-1:0]  raddr_c_i,
    output logic [DATA_WIDTH-1:0]  rdata_c_o,
-   output logic                   rtag_c_o,
+`ifdef DIFT_ACTIVE
+   output dift_tag_t              rtag_c_o,
+`endif
 
    // Write port W1
    input  logic [ADDR_WIDTH-1:0]   waddr_a_i,
    input  logic [DATA_WIDTH-1:0]   wdata_a_i,
-   input  logic                    wtag_a_i,
+`ifdef DIFT_ACTIVE
+   input  dift_tag_t               wtag_a_i,
+`endif
    input  logic                    we_a_i,
 
    // Write port W2
    input  logic [ADDR_WIDTH-1:0]   waddr_b_i,
    input  logic [DATA_WIDTH-1:0]   wdata_b_i,
-   input  logic                    wtag_b_i,
+`ifdef DIFT_ACTIVE
+   input  dift_tag_t               wtag_b_i,
+`endif
    input  logic                    we_b_i,
 
    // BIST ENABLE
@@ -79,10 +91,12 @@ module register_file_test_wrap
    input  logic                    CSN_T,
    input  logic                    WEN_T,
    input  logic [ADDR_WIDTH-1:0]   A_T,
+`ifdef DIFT_ACTIVE
+   input  dift_tag_t               DTAG_T,
+   output dift_tag_t               QTAG_T,
+`endif
    input  logic [DATA_WIDTH-1:0]   D_T,
-   input  logic                    DTAG_T,
-   output logic [DATA_WIDTH-1:0]   Q_T,
-   output logic                    QTAG_T
+   output logic [DATA_WIDTH-1:0]   Q_T
 );
 
 
@@ -91,12 +105,15 @@ module register_file_test_wrap
    logic                         WriteEnable_a_muxed;
    logic [ADDR_WIDTH-1:0]        WriteAddr_a_muxed;
    logic [DATA_WIDTH-1:0]        WriteData_a_muxed;
-   logic                         WriteTag_a_muxed;
 
    logic                         WriteEnable_b_muxed;
    logic [ADDR_WIDTH-1:0]        WriteAddr_b_muxed;
    logic [DATA_WIDTH-1:0]        WriteData_b_muxed;
-   logic                         WriteTag_b_muxed;
+
+`ifdef DIFT_ACTIVE
+   dift_tag_t                    WriteTag_a_muxed;
+   dift_tag_t                    WriteTag_b_muxed;
+`endif
 
 
    logic [ADDR_WIDTH-1:0]        TestReadAddr_Q;
@@ -104,7 +121,6 @@ module register_file_test_wrap
 
    // Multiplex This port during BIST
    assign WriteData_a_muxed   = (BIST) ?  D_T                                       : wdata_a_i;
-   assign WriteTag_a_muxed    = (BIST) ?  DTAG_T                                    : wtag_a_i;
    // FIX for CADENCE PMBIST : ignore Addr MSB (FPU=0) and internally invert address
    // assign WriteAddr_a_muxed   = (BIST) ?  A_T                                       : waddr_a_i;
    assign WriteAddr_a_muxed   = (BIST) ?  {1'b0,~A_T[ADDR_WIDTH-2:0]}              : waddr_a_i;
@@ -112,16 +128,22 @@ module register_file_test_wrap
 
    // Mask this port during TEST MODE (BIST == 1)
    assign WriteData_b_muxed   = (BIST) ? '0    : wdata_b_i;
-   assign WriteTag_b_muxed    = (BIST) ? '0    : wtag_b_i;
    assign WriteAddr_b_muxed   = (BIST) ? '0    : waddr_b_i;
    assign WriteEnable_b_muxed = (BIST) ? 1'b0  : we_b_i;
+
+`ifdef DIFT_ACTIVE
+   assign WriteTag_a_muxed    = (BIST) ?  DTAG_T : wtag_a_i;
+   assign WriteTag_b_muxed    = (BIST) ? '0      : wtag_b_i;
+`endif
 
 
    assign ReadAddr_a_muxed    = (BIST) ? TestReadAddr_Q   : raddr_a_i;
 
 
    assign Q_T    = rdata_a_o;
+`ifdef DIFT_ACTIVE
    assign QTAG_T = rtag_a_o;
+`endif
 
    always_ff @(posedge clk or negedge rst_n)
    begin : proc_
@@ -157,24 +179,34 @@ module register_file_test_wrap
 
       .raddr_a_i  ( ReadAddr_a_muxed    ),
       .rdata_a_o  ( rdata_a_o           ),
+`ifdef DIFT_ACTIVE
       .rtag_a_o   ( rtag_a_o            ),
+`endif
 
       .raddr_b_i  ( raddr_b_i           ),
       .rdata_b_o  ( rdata_b_o           ),
+`ifdef DIFT_ACTIVE
       .rtag_b_o   ( rtag_b_o            ),
+`endif
 
       .raddr_c_i  ( raddr_c_i           ),
       .rdata_c_o  ( rdata_c_o           ),
+`ifdef DIFT_ACTIVE
       .rtag_c_o   ( rtag_c_o            ),
+`endif
 
       .waddr_a_i  ( WriteAddr_a_muxed   ),
       .wdata_a_i  ( WriteData_a_muxed   ),
+`ifdef DIFT_ACTIVE
       .wtag_a_i   ( WriteTag_a_muxed    ),
+`endif
       .we_a_i     ( WriteEnable_a_muxed ),
 
       .waddr_b_i  ( WriteAddr_b_muxed   ),
       .wdata_b_i  ( WriteData_b_muxed   ),
+`ifdef DIFT_ACTIVE
       .wtag_b_i   ( WriteTag_b_muxed    ),
+`endif
       .we_b_i     ( WriteEnable_b_muxed )
    );
 

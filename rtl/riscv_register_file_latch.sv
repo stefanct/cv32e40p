@@ -29,6 +29,8 @@
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
+`include "riscv_dift_config.sv"
+
 module riscv_register_file
 #(
   parameter ADDR_WIDTH    = 5,
@@ -46,28 +48,38 @@ module riscv_register_file
   //Read port R1
   input  logic [ADDR_WIDTH-1:0]  raddr_a_i,
   output logic [DATA_WIDTH-1:0]  rdata_a_o,
-  output logic                   rtag_a_o,
+`ifdef DIFT_ACTIVE
+  output dift_tag_t              rtag_a_o,
+`endif
 
   //Read port R2
   input  logic [ADDR_WIDTH-1:0]  raddr_b_i,
   output logic [DATA_WIDTH-1:0]  rdata_b_o,
-  output logic                   rtag_b_o,
+`ifdef DIFT_ACTIVE
+  output dift_tag_t              rtag_b_o,
+`endif
 
   //Read port R3
   input  logic [ADDR_WIDTH-1:0]  raddr_c_i,
   output logic [DATA_WIDTH-1:0]  rdata_c_o,
-  output logic                   rtag_c_o,
+`ifdef DIFT_ACTIVE
+  output dift_tag_t              rtag_c_o,
+`endif
 
   // Write port W1
   input  logic [ADDR_WIDTH-1:0]   waddr_a_i,
   input  logic [DATA_WIDTH-1:0]   wdata_a_i,
-  input  logic                    wtag_a_i,
+`ifdef DIFT_ACTIVE
+  input  dift_tag_t               wtag_a_i,
+`endif
   input  logic                    we_a_i,
 
   // Write port W2
   input  logic [ADDR_WIDTH-1:0]   waddr_b_i,
   input  logic [DATA_WIDTH-1:0]   wdata_b_i,
-  input  logic                    wtag_b_i,
+`ifdef DIFT_ACTIVE
+  input  dift_tag_t               wtag_b_i,
+`endif
   input  logic                    we_b_i
 );
 
@@ -79,14 +91,11 @@ module riscv_register_file
 
    // integer register file
    logic [DATA_WIDTH-1:0]         mem[NUM_WORDS];
-   logic                          mem_tag[NUM_WORDS];
    logic [NUM_TOT_WORDS-1:1]      waddr_onehot_a;
    logic [NUM_TOT_WORDS-1:1]      waddr_onehot_b, waddr_onehot_b_q;
    logic [NUM_TOT_WORDS-1:1]      mem_clocks;
    logic [DATA_WIDTH-1:0]         wdata_a_q;
-   logic                          wtag_a_q;
    logic [DATA_WIDTH-1:0]         wdata_b_q;
-   logic                          wtag_b_q;
 
    // masked write addresses
    logic [ADDR_WIDTH-1:0]         waddr_a;
@@ -96,12 +105,20 @@ module riscv_register_file
 
    // fp register file
    logic [DATA_WIDTH-1:0]         mem_fp[NUM_FP_WORDS];
-   logic                          mem_fp_tag[NUM_FP_WORDS];
+
+`ifdef DIFT_ACTIVE
+   dift_tag_t                     mem_tag[NUM_WORDS];
+   dift_tag_t                     mem_fp_tag[NUM_FP_WORDS];
+   dift_tag_t                     wtag_a_q;
+   dift_tag_t                     wtag_b_q;
+`endif
 
    int                            unsigned i;
    int                            unsigned j;
    int                            unsigned k;
    int                            unsigned l;
+   int                            unsigned m;
+   int                            unsigned n;
 
    genvar                         x;
    genvar                         y;
@@ -112,18 +129,22 @@ module riscv_register_file
    //-----------------------------------------------------------------------------
    if (FPU == 1 && Zfinx == 0) begin
       assign rdata_a_o = raddr_a_i[5] ? mem_fp    [raddr_a_i[4:0]] : mem    [raddr_a_i[4:0]];
-      assign rtag_a_o  = raddr_a_i[5] ? mem_fp_tag[raddr_a_i[4:0]] : mem_tag[raddr_a_i[4:0]];
       assign rdata_b_o = raddr_b_i[5] ? mem_fp    [raddr_b_i[4:0]] : mem    [raddr_b_i[4:0]];
-      assign rtag_b_o  = raddr_b_i[5] ? mem_fp_tag[raddr_b_i[4:0]] : mem_tag[raddr_b_i[4:0]];
       assign rdata_c_o = raddr_c_i[5] ? mem_fp    [raddr_c_i[4:0]] : mem    [raddr_c_i[4:0]];
+`ifdef DIFT_ACTIVE
+      assign rtag_a_o  = raddr_a_i[5] ? mem_fp_tag[raddr_a_i[4:0]] : mem_tag[raddr_a_i[4:0]];
+      assign rtag_b_o  = raddr_b_i[5] ? mem_fp_tag[raddr_b_i[4:0]] : mem_tag[raddr_b_i[4:0]];
       assign rtag_c_o  = raddr_c_i[5] ? mem_fp_tag[raddr_c_i[4:0]] : mem_tag[raddr_c_i[4:0]];
+`endif
    end else begin
       assign rdata_a_o = mem    [raddr_a_i[4:0]];
-      assign rtag_a_o  = mem_tag[raddr_a_i[4:0]];
       assign rdata_b_o = mem    [raddr_b_i[4:0]];
-      assign rtag_b_o  = mem_tag[raddr_b_i[4:0]];
       assign rdata_c_o = mem    [raddr_c_i[4:0]];
+`ifdef DIFT_ACTIVE
+      assign rtag_a_o  = mem_tag[raddr_a_i[4:0]];
+      assign rtag_b_o  = mem_tag[raddr_b_i[4:0]];
       assign rtag_c_o  = mem_tag[raddr_c_i[4:0]];
+`endif
    end
 
    //-----------------------------------------------------------------------------
@@ -143,18 +164,24 @@ module riscv_register_file
      begin : sample_waddr
         if (~rst_n) begin
            wdata_a_q        <= '0;
-           wtag_a_q         <= '0;
            wdata_b_q        <= '0;
+`ifdef DIFT_ACTIVE
+           wtag_a_q         <= '0;
            wtag_b_q         <= '0;
+`endif
            waddr_onehot_b_q <= '0;
         end else begin
            if(we_a_i) begin
              wdata_a_q <= wdata_a_i;
+`ifdef DIFT_ACTIVE
              wtag_a_q  <= wtag_a_i;
+`endif
            end
            if(we_b_i) begin
              wdata_b_q <= wdata_b_i;
+`ifdef DIFT_ACTIVE
              wtag_b_q  <= wtag_b_i;
+`endif
            end
            waddr_onehot_b_q <= waddr_onehot_b;
         end
@@ -219,13 +246,11 @@ module riscv_register_file
      begin : latch_wdata
         // Note: The assignment has to be done inside this process or Modelsim complains about it
         mem[0] = '0;
-        mem_tag[0] = '0;
 
         for(k = 1; k < NUM_WORDS; k++)
           begin : w_WordIter
              if(mem_clocks[k] == 1'b1) begin
-               mem    [k] = waddr_onehot_b_q[k] ? wdata_b_q : wdata_a_q;
-               mem_tag[k] = waddr_onehot_b_q[k] ? wtag_b_q  : wtag_a_q;
+               mem[k] = waddr_onehot_b_q[k] ? wdata_b_q : wdata_a_q;
              end
           end
      end
@@ -239,10 +264,40 @@ module riscv_register_file
              begin : w_WordIter
                 if(mem_clocks[l+NUM_WORDS] == 1'b1) begin
                   mem_fp    [l] = waddr_onehot_b_q[l+NUM_WORDS] ? wdata_b_q : wdata_a_q;
-                  mem_fp_tag[l] = waddr_onehot_b_q[l+NUM_WORDS] ? wtag_b_q  : wtag_a_q;
                 end
              end
         end
       end
    end
+   
+`ifdef DIFT_ACTIVE
+    always_latch
+     begin : latch_wtag
+        // Note: The assignment has to be done inside this process or Modelsim complains about it
+        mem_tag[0] = '0;
+
+        for(m = 1; m < NUM_WORDS; m++)
+          begin : w_WordIter
+             if(mem_clocks[m] == 1'b1) begin
+               mem_tag[m] = waddr_onehot_b_q[m] ? wtag_b_q  : wtag_a_q;
+             end
+          end
+     end
+     
+     if (FPU == 1) begin
+     // Floating point registers
+     always_latch
+        begin : latch_wtag_fp
+          if (FPU == 1) begin
+             for(n = 0; n < NUM_FP_WORDS; n++)
+               begin : w_WordIter
+                  if(mem_clocks[n+NUM_WORDS] == 1'b1) begin
+                    mem_fp_tag[n] = waddr_onehot_b_q[n+NUM_WORDS] ? wtag_b_q  : wtag_a_q;
+                  end
+               end
+          end
+        end
+     end
+`endif
+
 endmodule

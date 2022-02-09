@@ -23,6 +23,8 @@
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
+`include "riscv_dift_config.sv"
+
 
 module riscv_load_store_unit
 (
@@ -39,20 +41,26 @@ module riscv_load_store_unit
     output logic         data_we_o,
     output logic [3:0]   data_be_o,
     output logic [31:0]  data_wdata_o,
-    output logic [3:0]   data_wtag_o,
     input  logic [31:0]  data_rdata_i,
+`ifdef DIFT_ACTIVE
+    output logic [3:0]   data_wtag_o,
     input  logic [3:0]   data_rtag_i,
+`endif
 
     // signals from ex stage
     input  logic         data_we_ex_i,         // write enable                      -> from ex stage
     input  logic [1:0]   data_type_ex_i,       // Data type word, halfword, byte    -> from ex stage
     input  logic [31:0]  data_wdata_ex_i,      // data to write to memory           -> from ex stage
-    input  logic         data_wtag_ex_i,       // tag bit of data to write          -> from ex stage
+`ifdef DIFT_ACTIVE
+    input  dift_tag_t    data_wtag_ex_i,       // tag bits of data to write         -> from ex stage
+`endif
     input  logic [1:0]   data_reg_offset_ex_i, // offset inside register for stores -> from ex stage
     input  logic [1:0]   data_sign_ext_ex_i,   // sign extension                    -> from ex stage
 
     output logic [31:0]  data_rdata_ex_o,      // requested data                    -> to ex stage
-    output logic         data_rtag_ex_o,       // tag bit of requested data         -> to ex stage
+`ifdef DIFT_ACTIVE
+    output dift_tag_t    data_rtag_ex_o,       // tag bits of requested data        -> to ex stage
+`endif
     input  logic         data_req_ex_i,        // data request                      -> from ex stage
     input  logic [31:0]  operand_a_ex_i,       // operand a from RF for address     -> from ex stage
     input  logic [31:0]  operand_b_ex_i,       // operand b from RF for address     -> from ex stage
@@ -88,7 +96,9 @@ module riscv_load_store_unit
   enum logic [1:0]  { IDLE, WAIT_RVALID, WAIT_RVALID_EX_STALL, IDLE_EX_STALL } CS, NS;
 
   logic [31:0]  rdata_q;
+`ifdef DIFT_ACTIVE
   logic [3:0]   rtag_q;
+`endif
 
   ///////////////////////////////// BE generation ////////////////////////////////
   always_comb
@@ -190,11 +200,13 @@ module riscv_load_store_unit
   ////////////////////////////////////////////////////////////////////////
 
   logic [31:0] data_rdata_ext;
-  logic [3:0]  data_rtag_ext;
 
   logic [31:0] rdata_w_ext; // sign extension for words, actually only misaligned assembly
   logic [31:0] rdata_h_ext; // sign extension for half words
   logic [31:0] rdata_b_ext; // sign extension for bytes
+
+`ifdef DIFT_ACTIVE
+  logic [3:0]  data_rtag_ext;
 
   // take care of misaligned words (tag bits)
   always_comb
@@ -206,6 +218,7 @@ module riscv_load_store_unit
       2'b11: data_rtag_ext = {data_rtag_i[2:0], rtag_q[3]  };
     endcase
   end
+`endif
 
   // take care of misaligned words
   always_comb
@@ -327,7 +340,9 @@ module riscv_load_store_unit
     begin
       CS            <= IDLE;
       rdata_q       <= '0;
+`ifdef DIFT_ACTIVE
       rtag_q        <= '0;
+`endif
     end
     else
     begin
@@ -342,10 +357,14 @@ module riscv_load_store_unit
         // writing to the register file
         if ((data_misaligned_ex_i == 1'b1) || (data_misaligned_o == 1'b1)) begin
           rdata_q  <= data_rdata_i;
+`ifdef DIFT_ACTIVE
           rtag_q   <= data_rtag_i;
+`endif
         end else begin
           rdata_q  <= data_rdata_ext;
+`ifdef DIFT_ACTIVE
           rtag_q   <= data_rtag_ext;
+`endif
         end
       end
     end
@@ -353,12 +372,22 @@ module riscv_load_store_unit
 
   // output to register file
   assign data_rdata_ex_o = (data_rvalid_i == 1'b1) ? data_rdata_ext : rdata_q;
-  assign data_rtag_ex_o  = (data_rvalid_i == 1'b1) ? (data_rtag_ext[3] | data_rtag_ext[2] | data_rtag_ext[1] | data_rtag_ext[0]) : (rtag_q[3] | rtag_q[2] | rtag_q[1] | rtag_q[0]);
+`ifdef DIFT_ACTIVE
+  if (DIFT_TAG_SIZE == 1)
+    assign data_rtag_ex_o  = (data_rvalid_i == 1'b1) ? (data_rtag_ext[3] | data_rtag_ext[2] | data_rtag_ext[1] | data_rtag_ext[0]) : (rtag_q[3] | rtag_q[2] | rtag_q[1] | rtag_q[0]);
+  else if (DIFT_TAG_SIZE == 4)
+    assign data_rtag_ex_o  = (data_rvalid_i == 1'b1) ? data_rtag_ext : rtag_q;
+`endif
 
   // output to data interface
   assign data_addr_o   = data_addr_int;
   assign data_wdata_o  = data_wdata;
-  assign data_wtag_o   = {4{data_wtag_ex_i}};
+`ifdef DIFT_ACTIVE
+  if (DIFT_TAG_SIZE == 1)
+    assign data_wtag_o = {4{data_wtag_ex_i}};
+  else if (DIFT_TAG_SIZE == 4)
+    assign data_wtag_o = data_wtag_ex_i;
+`endif
   assign data_we_o     = data_we_ex_i;
   assign data_be_o     = data_be;
 
