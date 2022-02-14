@@ -114,11 +114,6 @@ module riscv_id_stage
     output logic [31:0] alu_operand_a_ex_o,
     output logic [31:0] alu_operand_b_ex_o,
     output logic [31:0] alu_operand_c_ex_o,
-`ifdef DIFT_ACTIVE
-    output dift_tag_t   alu_operand_a_tag_ex_o,
-    output dift_tag_t   alu_operand_b_tag_ex_o,
-    output dift_tag_t   alu_operand_c_tag_ex_o,
-`endif
     output logic [ 4:0] bmask_a_ex_o,
     output logic [ 4:0] bmask_b_ex_o,
     output logic [ 1:0] imm_vec_ext_ex_o,
@@ -143,11 +138,6 @@ module riscv_id_stage
     output logic [31:0] mult_operand_a_ex_o,
     output logic [31:0] mult_operand_b_ex_o,
     output logic [31:0] mult_operand_c_ex_o,
-`ifdef DIFT_ACTIVE
-    output dift_tag_t   mult_operand_a_tag_ex_o,
-    output dift_tag_t   mult_operand_b_tag_ex_o,
-    output dift_tag_t   mult_operand_c_tag_ex_o,
-`endif
     output logic        mult_en_ex_o,
     output logic        mult_sel_subword_ex_o,
     output logic [ 1:0] mult_signed_mode_ex_o,
@@ -156,11 +146,6 @@ module riscv_id_stage
     output logic [31:0] mult_dot_op_a_ex_o,
     output logic [31:0] mult_dot_op_b_ex_o,
     output logic [31:0] mult_dot_op_c_ex_o,
-`ifdef DIFT_ACTIVE
-    output dift_tag_t   mult_dot_op_a_tag_ex_o,
-    output dift_tag_t   mult_dot_op_b_tag_ex_o,
-    output dift_tag_t   mult_dot_op_c_tag_ex_o,
-`endif
     output logic [ 1:0] mult_dot_signed_ex_o,
     output logic        mult_is_clpx_ex_o,
     output logic [ 1:0] mult_clpx_shift_ex_o,
@@ -187,14 +172,20 @@ module riscv_id_stage
 
     // DIFT
 `ifdef DIFT_ACTIVE
-    output logic        dift_en_ex_o,
-    output logic [ 2:0] dift_operator_ex_o,
-    output logic [31:0] dift_operand_a_ex_o,
-    output dift_tag_t   dift_operand_a_tag_ex_o,
-    output logic [31:0] dift_operand_b_ex_o,
-    output dift_tag_t   dift_operand_b_tag_ex_o,
-    output logic [31:0] dift_operand_c_ex_o,
-    output dift_tag_t   dift_operand_c_tag_ex_o,
+    // DIFT tag propagation
+    output dift_opclass_t dift_opclass_ex_o,
+    output dift_tag_t     operand_a_tag_ex_o,
+    output dift_tag_t     operand_b_tag_ex_o,
+    output dift_tag_t     operand_c_tag_ex_o,
+    // DIFT tag manipulation
+    output logic          dift_en_ex_o,
+    output logic [ 2:0]   dift_operator_ex_o,
+    output logic [31:0]   dift_operand_a_ex_o,
+    output logic [31:0]   dift_operand_b_ex_o,
+    output logic [31:0]   dift_operand_c_ex_o,
+    output dift_tag_t     dift_operand_a_tag_ex_o,
+    output dift_tag_t     dift_operand_b_tag_ex_o,
+    output dift_tag_t     dift_operand_c_tag_ex_o,
 `endif
 
     // CSR ID/EX
@@ -419,8 +410,9 @@ module riscv_id_stage
 
   // DIFT signals
 `ifdef DIFT_ACTIVE
-  logic        dift_en;
-  logic [2:0]  dift_operator;
+  dift_opclass_t  dift_opclass;
+  logic           dift_en;
+  logic [2:0]     dift_operator;
 `endif
 
   // Register Write Control
@@ -1273,6 +1265,7 @@ module riscv_id_stage
 
     // DIFT unit
 `ifdef DIFT_ACTIVE
+    .dift_opclass_o                  ( dift_opclass              ),
     .dift_en_o                       ( dift_en                   ),
     .dift_operator_o                 ( dift_operator             ),
 `endif
@@ -1578,11 +1571,6 @@ module riscv_id_stage
       alu_operand_a_ex_o          <= '0;
       alu_operand_b_ex_o          <= '0;
       alu_operand_c_ex_o          <= '0;
-`ifdef DIFT_ACTIVE
-      alu_operand_a_tag_ex_o      <= '0;
-      alu_operand_b_tag_ex_o      <= '0;
-      alu_operand_c_tag_ex_o      <= '0;
-`endif
       bmask_a_ex_o                <= '0;
       bmask_b_ex_o                <= '0;
       imm_vec_ext_ex_o            <= '0;
@@ -1595,11 +1583,6 @@ module riscv_id_stage
       mult_operand_a_ex_o         <= '0;
       mult_operand_b_ex_o         <= '0;
       mult_operand_c_ex_o         <= '0;
-`ifdef DIFT_ACTIVE
-      mult_operand_a_tag_ex_o     <= '0;
-      mult_operand_b_tag_ex_o     <= '0;
-      mult_operand_c_tag_ex_o     <= '0;
-`endif
       mult_en_ex_o                <= 1'b0;
       mult_sel_subword_ex_o       <= 1'b0;
       mult_signed_mode_ex_o       <= 2'b00;
@@ -1608,11 +1591,6 @@ module riscv_id_stage
       mult_dot_op_a_ex_o          <= '0;
       mult_dot_op_b_ex_o          <= '0;
       mult_dot_op_c_ex_o          <= '0;
-`ifdef DIFT_ACTIVE
-      mult_dot_op_a_tag_ex_o      <= '0;
-      mult_dot_op_b_tag_ex_o      <= '0;
-      mult_dot_op_c_tag_ex_o      <= '0;
-`endif
       mult_dot_signed_ex_o        <= '0;
       mult_is_clpx_ex_o           <= 1'b0;
       mult_clpx_shift_ex_o        <= 2'b0;
@@ -1629,6 +1607,11 @@ module riscv_id_stage
       apu_waddr_ex_o              <= '0;
 
 `ifdef DIFT_ACTIVE
+      dift_opclass_ex_o           <= '0;
+      operand_a_tag_ex_o          <= '0;
+      operand_b_tag_ex_o          <= '0;
+      operand_c_tag_ex_o          <= '0;
+
       dift_en_ex_o                <= '0;
       dift_operator_ex_o          <= '0;
       dift_operand_a_ex_o         <= '0;
@@ -1675,15 +1658,9 @@ module riscv_id_stage
         if (prepost_useincr_ex_o == 1'b1)
         begin
           alu_operand_a_ex_o        <= alu_operand_a;
-`ifdef DIFT_ACTIVE
-          alu_operand_a_tag_ex_o    <= alu_operand_a_tag;
-`endif
         end
 
         alu_operand_b_ex_o          <= alu_operand_b;
-`ifdef DIFT_ACTIVE
-        alu_operand_b_tag_ex_o      <= alu_operand_b_tag;
-`endif
         regfile_alu_we_ex_o         <= regfile_alu_we_id;
         prepost_useincr_ex_o        <= prepost_useincr;
 
@@ -1691,9 +1668,6 @@ module riscv_id_stage
       end
     end else if (mult_multicycle_i) begin
       mult_operand_c_ex_o     <= alu_operand_c;
-`ifdef DIFT_ACTIVE
-      mult_operand_c_tag_ex_o <= alu_operand_c_tag;
-`endif
     end
     else begin
       // normal pipeline unstall case
@@ -1710,11 +1684,6 @@ module riscv_id_stage
             alu_operand_a_ex_o        <= alu_operand_a;
             alu_operand_b_ex_o        <= alu_operand_b;
             alu_operand_c_ex_o        <= alu_operand_c;
-`ifdef DIFT_ACTIVE
-            alu_operand_a_tag_ex_o    <= alu_operand_a_tag;
-            alu_operand_b_tag_ex_o    <= alu_operand_b_tag;
-            alu_operand_c_tag_ex_o    <= alu_operand_c_tag;
-`endif
             bmask_a_ex_o              <= bmask_a_id;
             bmask_b_ex_o              <= bmask_b_id;
             imm_vec_ext_ex_o          <= imm_vec_ext_id;
@@ -1733,11 +1702,6 @@ module riscv_id_stage
           mult_operand_a_ex_o       <= alu_operand_a;
           mult_operand_b_ex_o       <= alu_operand_b;
           mult_operand_c_ex_o       <= alu_operand_c;
-`ifdef DIFT_ACTIVE
-          mult_operand_a_tag_ex_o   <= alu_operand_a_tag;
-          mult_operand_b_tag_ex_o   <= alu_operand_b_tag;
-          mult_operand_c_tag_ex_o   <= alu_operand_c_tag;
-`endif
           mult_imm_ex_o             <= mult_imm_id;
         end
         if (mult_dot_en) begin
@@ -1746,11 +1710,6 @@ module riscv_id_stage
           mult_dot_op_a_ex_o        <= alu_operand_a;
           mult_dot_op_b_ex_o        <= alu_operand_b;
           mult_dot_op_c_ex_o        <= alu_operand_c;
-`ifdef DIFT_ACTIVE
-          mult_dot_op_a_tag_ex_o    <= alu_operand_a_tag;
-          mult_dot_op_b_tag_ex_o    <= alu_operand_b_tag;
-          mult_dot_op_c_tag_ex_o    <= alu_operand_c_tag;
-`endif
           mult_is_clpx_ex_o         <= is_clpx;
           mult_clpx_shift_ex_o      <= instr[14:13];
           mult_clpx_img_ex_o        <= instr[25];
@@ -1769,6 +1728,12 @@ module riscv_id_stage
 
         // DIFT pipeline
 `ifdef DIFT_ACTIVE
+        // tag propagation
+        dift_opclass_ex_o           <= dift_opclass;
+        operand_a_tag_ex_o          <= alu_operand_a_tag;
+        operand_b_tag_ex_o          <= alu_operand_b_tag;
+        operand_c_tag_ex_o          <= alu_operand_c_tag;
+        // tag manipulation
         dift_en_ex_o                <= dift_en;
         if (dift_en) begin
           dift_operator_ex_o        <= dift_operator;
@@ -1840,6 +1805,10 @@ module riscv_id_stage
         mult_en_ex_o                <= 1'b0;
 
         alu_en_ex_o                 <= 1'b1;
+
+`ifdef DIFT_ACTIVE
+        dift_en_ex_o                <= 1'b0;
+`endif
 
       end else if (csr_access_ex_o) begin
        //In the EX stage there was a CSR access, to avoid multiple

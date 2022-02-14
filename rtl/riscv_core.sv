@@ -179,11 +179,6 @@ module riscv_core
   logic [31:0] alu_operand_a_ex;
   logic [31:0] alu_operand_b_ex;
   logic [31:0] alu_operand_c_ex;
-`ifdef DIFT_ACTIVE
-  dift_tag_t   alu_operand_a_tag_ex;
-  dift_tag_t   alu_operand_b_tag_ex;
-  dift_tag_t   alu_operand_c_tag_ex;
-`endif
   logic [ 4:0] bmask_a_ex;
   logic [ 4:0] bmask_b_ex;
   logic [ 1:0] imm_vec_ext_ex;
@@ -196,11 +191,6 @@ module riscv_core
   logic [31:0] mult_operand_a_ex;
   logic [31:0] mult_operand_b_ex;
   logic [31:0] mult_operand_c_ex;
-`ifdef DIFT_ACTIVE
-  dift_tag_t   mult_operand_a_tag_ex;
-  dift_tag_t   mult_operand_b_tag_ex;
-  dift_tag_t   mult_operand_c_tag_ex;
-`endif
   logic        mult_en_ex;
   logic        mult_sel_subword_ex;
   logic [ 1:0] mult_signed_mode_ex;
@@ -208,11 +198,6 @@ module riscv_core
   logic [31:0] mult_dot_op_a_ex;
   logic [31:0] mult_dot_op_b_ex;
   logic [31:0] mult_dot_op_c_ex;
-`ifdef DIFT_ACTIVE
-  dift_tag_t   mult_dot_op_a_tag_ex;
-  dift_tag_t   mult_dot_op_b_tag_ex;
-  dift_tag_t   mult_dot_op_c_tag_ex;
-`endif
   logic [ 1:0] mult_dot_signed_ex;
   logic        mult_is_clpx_ex_o;
   logic [ 1:0] mult_clpx_shift_ex;
@@ -249,14 +234,20 @@ module riscv_core
 
   // DIFT
 `ifdef DIFT_ACTIVE
-  logic        dift_en_ex;
-  logic [ 2:0] dift_operator_ex;
-  logic [31:0] dift_operand_a_ex;
-  logic [31:0] dift_operand_b_ex;
-  logic [31:0] dift_operand_c_ex;
-  dift_tag_t   dift_operand_a_tag_ex;
-  dift_tag_t   dift_operand_b_tag_ex;
-  dift_tag_t   dift_operand_c_tag_ex;
+  // DIFT tag propagation
+  dift_opclass_t  dift_opclass_ex;
+  dift_tag_t      operand_a_tag_ex;
+  dift_tag_t      operand_b_tag_ex;
+  dift_tag_t      operand_c_tag_ex;
+  // DIFT tag manipulation
+  logic           dift_en_ex;
+  logic [ 2:0]    dift_operator_ex;
+  logic [31:0]    dift_operand_a_ex;
+  logic [31:0]    dift_operand_b_ex;
+  logic [31:0]    dift_operand_c_ex;
+  dift_tag_t      dift_operand_a_tag_ex;
+  dift_tag_t      dift_operand_b_tag_ex;
+  dift_tag_t      dift_operand_c_tag_ex;
 `endif
 
   // Register Write Control
@@ -654,11 +645,6 @@ module riscv_core
     .alu_operand_a_ex_o           ( alu_operand_a_ex     ),
     .alu_operand_b_ex_o           ( alu_operand_b_ex     ),
     .alu_operand_c_ex_o           ( alu_operand_c_ex     ),
-`ifdef DIFT_ACTIVE
-    .alu_operand_a_tag_ex_o       ( alu_operand_a_tag_ex ),
-    .alu_operand_b_tag_ex_o       ( alu_operand_b_tag_ex ),
-    .alu_operand_c_tag_ex_o       ( alu_operand_c_tag_ex ),
-`endif
     .bmask_a_ex_o                 ( bmask_a_ex           ),
     .bmask_b_ex_o                 ( bmask_b_ex           ),
     .imm_vec_ext_ex_o             ( imm_vec_ext_ex       ),
@@ -681,21 +667,11 @@ module riscv_core
     .mult_operand_a_ex_o          ( mult_operand_a_ex    ), // from ID to EX stage
     .mult_operand_b_ex_o          ( mult_operand_b_ex    ), // from ID to EX stage
     .mult_operand_c_ex_o          ( mult_operand_c_ex    ), // from ID to EX stage
-`ifdef DIFT_ACTIVE
-    .mult_operand_a_tag_ex_o      ( mult_operand_a_tag_ex), // from ID to EX stage
-    .mult_operand_b_tag_ex_o      ( mult_operand_b_tag_ex), // from ID to EX stage
-    .mult_operand_c_tag_ex_o      ( mult_operand_c_tag_ex), // from ID to EX stage
-`endif
     .mult_imm_ex_o                ( mult_imm_ex          ), // from ID to EX stage
 
     .mult_dot_op_a_ex_o           ( mult_dot_op_a_ex     ), // from ID to EX stage
     .mult_dot_op_b_ex_o           ( mult_dot_op_b_ex     ), // from ID to EX stage
     .mult_dot_op_c_ex_o           ( mult_dot_op_c_ex     ), // from ID to EX stage
-`ifdef DIFT_ACTIVE
-    .mult_dot_op_a_tag_ex_o       ( mult_dot_op_a_tag_ex ), // from ID to EX stage
-    .mult_dot_op_b_tag_ex_o       ( mult_dot_op_b_tag_ex ), // from ID to EX stage
-    .mult_dot_op_c_tag_ex_o       ( mult_dot_op_c_tag_ex ), // from ID to EX stage
-`endif
     .mult_dot_signed_ex_o         ( mult_dot_signed_ex   ), // from ID to EX stage
     .mult_is_clpx_ex_o            ( mult_is_clpx_ex      ), // from ID to EX stage
     .mult_clpx_shift_ex_o         ( mult_clpx_shift_ex   ), // from ID to EX stage
@@ -724,6 +700,12 @@ module riscv_core
 
     // DIFT
 `ifdef DIFT_ACTIVE
+    // DIFT tag propagation
+    .dift_opclass_ex_o            ( dift_opclass_ex         ),
+    .operand_a_tag_ex_o           ( operand_a_tag_ex        ),
+    .operand_b_tag_ex_o           ( operand_b_tag_ex        ),
+    .operand_c_tag_ex_o           ( operand_c_tag_ex        ),
+    // DIFT tag manipulation
     .dift_en_ex_o                 ( dift_en_ex              ),
     .dift_operator_ex_o           ( dift_operator_ex        ),
     .dift_operand_a_ex_o          ( dift_operand_a_ex       ),
@@ -850,11 +832,6 @@ module riscv_core
     .alu_operand_a_i            ( alu_operand_a_ex             ), // from ID/EX pipe registers
     .alu_operand_b_i            ( alu_operand_b_ex             ), // from ID/EX pipe registers
     .alu_operand_c_i            ( alu_operand_c_ex             ), // from ID/EX pipe registers
-`ifdef DIFT_ACTIVE
-    .alu_operand_a_tag_i        ( alu_operand_a_tag_ex         ), // from ID/EX pipe registers
-    .alu_operand_b_tag_i        ( alu_operand_b_tag_ex         ), // from ID/EX pipe registers
-    .alu_operand_c_tag_i        ( alu_operand_c_tag_ex         ), // from ID/EX pipe registers
-`endif
     .bmask_a_i                  ( bmask_a_ex                   ), // from ID/EX pipe registers
     .bmask_b_i                  ( bmask_b_ex                   ), // from ID/EX pipe registers
     .imm_vec_ext_i              ( imm_vec_ext_ex               ), // from ID/EX pipe registers
@@ -868,11 +845,6 @@ module riscv_core
     .mult_operand_a_i           ( mult_operand_a_ex            ), // from ID/EX pipe registers
     .mult_operand_b_i           ( mult_operand_b_ex            ), // from ID/EX pipe registers
     .mult_operand_c_i           ( mult_operand_c_ex            ), // from ID/EX pipe registers
-`ifdef DIFT_ACTIVE
-    .mult_operand_a_tag_i       ( mult_operand_a_tag_ex        ), // from ID/EX pipe registers
-    .mult_operand_b_tag_i       ( mult_operand_b_tag_ex        ), // from ID/EX pipe registers
-    .mult_operand_c_tag_i       ( mult_operand_c_tag_ex        ), // from ID/EX pipe registers
-`endif
     .mult_en_i                  ( mult_en_ex                   ), // from ID/EX pipe registers
     .mult_sel_subword_i         ( mult_sel_subword_ex          ), // from ID/EX pipe registers
     .mult_signed_mode_i         ( mult_signed_mode_ex          ), // from ID/EX pipe registers
@@ -880,11 +852,6 @@ module riscv_core
     .mult_dot_op_a_i            ( mult_dot_op_a_ex             ), // from ID/EX pipe registers
     .mult_dot_op_b_i            ( mult_dot_op_b_ex             ), // from ID/EX pipe registers
     .mult_dot_op_c_i            ( mult_dot_op_c_ex             ), // from ID/EX pipe registers
-`ifdef DIFT_ACTIVE
-    .mult_dot_op_a_tag_i        ( mult_dot_op_a_tag_ex         ), // from ID/EX pipe registers
-    .mult_dot_op_b_tag_i        ( mult_dot_op_b_tag_ex         ), // from ID/EX pipe registers
-    .mult_dot_op_c_tag_i        ( mult_dot_op_c_tag_ex         ), // from ID/EX pipe registers
-`endif
     .mult_dot_signed_i          ( mult_dot_signed_ex           ), // from ID/EX pipe registers
     .mult_is_clpx_i             ( mult_is_clpx_ex              ), // from ID/EX pipe registers
     .mult_clpx_shift_i          ( mult_clpx_shift_ex           ), // from ID/EX pipe registers
@@ -920,13 +887,18 @@ module riscv_core
 
     // DIFT
 `ifdef DIFT_ACTIVE
+    .dift_opclass_i             ( dift_opclass_ex              ),
+    .operand_a_tag_i            ( operand_a_tag_ex             ),
+    .operand_b_tag_i            ( operand_b_tag_ex             ),
+    .operand_c_tag_i            ( operand_c_tag_ex             ),
+    
     .dift_en_i                  ( dift_en_ex                   ),
     .dift_operator_i            ( dift_operator_ex             ),
     .dift_operand_a_i           ( dift_operand_a_ex            ),
-    .dift_operand_a_tag_i       ( dift_operand_a_tag_ex        ),
     .dift_operand_b_i           ( dift_operand_b_ex            ),
-    .dift_operand_b_tag_i       ( dift_operand_b_tag_ex        ),
     .dift_operand_c_i           ( dift_operand_c_ex            ),
+    .dift_operand_a_tag_i       ( dift_operand_a_tag_ex        ),
+    .dift_operand_b_tag_i       ( dift_operand_b_tag_ex        ),
     .dift_operand_c_tag_i       ( dift_operand_c_tag_ex        ),
 `endif
 
@@ -1025,7 +997,7 @@ module riscv_core
     .data_type_ex_i        ( data_type_ex       ),
     .data_wdata_ex_i       ( alu_operand_c_ex   ),
 `ifdef DIFT_ACTIVE
-    .data_wtag_ex_i        ( alu_operand_c_tag_ex),
+    .data_wtag_ex_i        ( operand_c_tag_ex   ),
 `endif
     .data_reg_offset_ex_i  ( data_reg_offset_ex ),
     .data_sign_ext_ex_i    ( data_sign_ext_ex   ),  // sign extension
@@ -1037,6 +1009,10 @@ module riscv_core
     .data_req_ex_i         ( data_req_ex        ),
     .operand_a_ex_i        ( alu_operand_a_ex   ),
     .operand_b_ex_i        ( alu_operand_b_ex   ),
+`ifdef DIFT_ACTIVE
+    .operand_a_tag_ex_i    ( operand_a_tag_ex   ),
+    .operand_b_tag_ex_i    ( operand_b_tag_ex   ),
+`endif
     .addr_useincr_ex_i     ( useincr_addr_ex    ),
 
     .data_misaligned_ex_i  ( data_misaligned_ex ), // from ID/EX pipeline

@@ -125,6 +125,7 @@ module riscv_decoder
 
 `ifdef DIFT_ACTIVE
   // DIFT
+  output dift_opclass_t       dift_opclass_o,
   output logic                dift_en_o,
   output logic [2:0]          dift_operator_o,
 `endif
@@ -207,6 +208,69 @@ module riscv_decoder
   // unittypes for latencies to help us decode for APU
   enum logic[1:0] {ADDMUL, DIVSQRT, NONCOMP, CONV} fp_op_group;
 
+
+  // DIFT DECODER
+`ifdef DIFT_ACTIVE
+  always_comb
+  begin
+    case (instr_rdata_i[6:0])
+      OPCODE_LUI,
+      OPCODE_AUIPC:   dift_opclass_o = DIFT_OPCLASS_XUI;
+      
+      OPCODE_JALR,
+      OPCODE_JAL:     dift_opclass_o = DIFT_OPCLASS_JUMP;
+      
+      OPCODE_BRANCH:  dift_opclass_o = DIFT_OPCLASS_BRANCH;
+      
+      OPCODE_LOAD:    dift_opclass_o = DIFT_OPCLASS_LOAD;
+      
+      OPCODE_STORE:   dift_opclass_o = DIFT_OPCLASS_STORE;
+      
+      OPCODE_OP,
+      OPCODE_OPIMM: begin
+        if ((instr_rdata_i[6:0] == OPCODE_OPIMM) && instr_rdata_i[31:25] == 7'b0000001)
+          dift_opclass_o = DIFT_OPCLASS_MUL;
+        else begin
+          case (instr_rdata_i[14:12])
+            3'b000, // ADD / SUB / ADDI
+            3'b100, // XOR / XORI
+            3'b110, // OR / ORI
+            3'b111: // AND / ANDI
+                        dift_opclass_o = DIFT_OPCLASS_ALU;
+            3'b010, // SLT / SLTI
+            3'b011: // SLTU / SLTIU
+                        dift_opclass_o = DIFT_OPCLASS_COMP;
+            3'b001, // SLL / SLLI
+            3'b101: // SRL / SRA / SRLI / SRAI
+                        dift_opclass_o = DIFT_OPCLASS_SHIFT;
+            default:    dift_opclass_o = DIFT_OPCLASS_OTHER;
+          endcase
+        end
+      end
+
+      OPCODE_FENCE:   dift_opclass_o = DIFT_OPCLASS_SYS;
+
+      OPCODE_SYSTEM: begin
+        if (instr_rdata_i[14:12] == 3'b000)
+          dift_opclass_o = DIFT_OPCLASS_SYS;
+        else
+          dift_opclass_o = DIFT_OPCLASS_CSR;
+      end
+
+      OPCODE_OP_FP,
+      OPCODE_OP_FMADD,
+      OPCODE_OP_FNMADD,
+      OPCODE_OP_FMSUB,
+      OPCODE_OP_FNMSUB,
+      OPCODE_STORE_FP,
+      OPCODE_LOAD_FP:   dift_opclass_o = DIFT_OPCLASS_FLOAT;
+      
+      OPCODE_DIFT:      dift_opclass_o = DIFT_OPCLASS_SYS;  // TODO ???
+    
+      default:          dift_opclass_o = DIFT_OPCLASS_OTHER;
+    endcase
+  end
+`endif
 
   /////////////////////////////////////////////
   //   ____                     _            //

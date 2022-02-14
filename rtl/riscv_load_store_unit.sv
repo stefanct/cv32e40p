@@ -25,6 +25,8 @@
 
 `include "riscv_dift_config.sv"
 
+import riscv_defines::*;
+
 
 module riscv_load_store_unit
 (
@@ -64,6 +66,11 @@ module riscv_load_store_unit
     input  logic         data_req_ex_i,        // data request                      -> from ex stage
     input  logic [31:0]  operand_a_ex_i,       // operand a from RF for address     -> from ex stage
     input  logic [31:0]  operand_b_ex_i,       // operand b from RF for address     -> from ex stage
+`ifdef DIFT_ACTIVE
+    input  dift_tag_t    operand_a_tag_ex_i,   // tag bits of operand a (address), needed for LOADs only
+    input  dift_tag_t    operand_b_tag_ex_i,   // tag bits of operand b (address), needed for LOADs only
+    //input  dift_proppol_mem_t dift_proppol_load_i, // configured propagation policy for load instructions
+`endif
     input  logic         addr_useincr_ex_i,    // use a + b or just a for address   -> from ex stage
 
     input  logic         data_misaligned_ex_i, // misaligned access in last ld/st   -> from ID/EX pipeline
@@ -96,7 +103,9 @@ module riscv_load_store_unit
   enum logic [1:0]  { IDLE, WAIT_RVALID, WAIT_RVALID_EX_STALL, IDLE_EX_STALL } CS, NS;
 
   logic [31:0]  rdata_q;
+
 `ifdef DIFT_ACTIVE
+  logic [3:0]   data_wtag;
   logic [3:0]   rtag_q;
 `endif
 
@@ -168,6 +177,25 @@ module riscv_load_store_unit
       2'b11: data_wdata = {data_wdata_ex_i[ 7:0], data_wdata_ex_i[31: 8]};
     endcase; // case (wdata_offset)
   end
+
+`ifdef DIFT_ACTIVE
+  logic [3:0] temp_data_wtag;
+
+  always_comb
+  begin
+    if (DIFT_TAG_SIZE == 1)
+      temp_data_wtag = {4{data_wtag_ex_i}};
+    else  // DIFT_TAG_SIZE == 4
+      temp_data_wtag = data_wtag_ex_i;
+
+    case (wdata_offset)
+      2'b00: data_wtag = temp_data_wtag;
+      2'b01: data_wtag = {temp_data_wtag[2:0], temp_data_wtag[  3]};
+      2'b10: data_wtag = {temp_data_wtag[1:0], temp_data_wtag[3:2]};
+      2'b11: data_wtag = {temp_data_wtag[  0], temp_data_wtag[3:1]};
+    endcase; // case (wdata_offset)
+  end
+`endif
 
 
   // FF for rdata alignment and sign-extension
@@ -373,20 +401,61 @@ module riscv_load_store_unit
   // output to register file
   assign data_rdata_ex_o = (data_rvalid_i == 1'b1) ? data_rdata_ext : rdata_q;
 `ifdef DIFT_ACTIVE
-  if (DIFT_TAG_SIZE == 1)
-    assign data_rtag_ex_o  = (data_rvalid_i == 1'b1) ? (data_rtag_ext[3] | data_rtag_ext[2] | data_rtag_ext[1] | data_rtag_ext[0]) : (rtag_q[3] | rtag_q[2] | rtag_q[1] | rtag_q[0]);
-  else if (DIFT_TAG_SIZE == 4)
-    assign data_rtag_ex_o  = (data_rvalid_i == 1'b1) ? data_rtag_ext : rtag_q;
+  // DIFT: Tag Propagation for load instructions
+  // (LSU specific part, which cannot be handled directly inside the DIFT Tag Propagation module in EX stage)
+  dift_proppol_mem_t  dift_proppol_load;
+  dift_tag_t    tag_value_current_input;
+  dift_tag_t    tag_value_saved_in_reg;
+  dift_tag_t    temp_tag_value;
+  dift_tag_t    temp_tag_addr;
+  dift_tag_t    temp_tag_result;
+
+  // TODO: use actual values from CSR DIFT tag propagation configuration register (TPR)
+  // e.g.: dift_prop_policy = tpr_i[3:0];
+  // for now (development): config is hardcoded right here
+  assign dift_proppol_load.en_value = 1'b1;
+  assign dift_proppol_load.en_addr  = 1'b0;
+  assign dift_proppol_load.mode     = DIFT_PROPMODE2_OR;
+
+  always_comb
+  begin
+    if (DIFT_TAG_SIZE == 1) begin
+      // OR reduction of the 4 tag bits to a single tag bit
+      tag_value_current_input = |data_rtag_ext;
+      tag_value_saved_in_reg  = |rtag_q;
+    end
+    else begin // DIFT_TAG_SIZE == 4
+      // no reduction needed, as core also uses 4 tag bits
+      tag_value_current_input = data_rtag_ext;
+      tag_value_saved_in_reg  = rtag_q;
+    end
+
+    // handle value and address propagation enable policies
+    //   operand_a holds the base address (from register)
+    //   operand_b holds the address offset (immeadiate value) -> is always untainted -> no need to process
+    //   operand_c holds the write value for stores -> not needed for propagation of load instructions
+    temp_tag_value = tag_value_current_input & {DIFT_TAG_SIZE{ dift_proppol_load.en_value }};
+    temp_tag_addr  = {DIFT_TAG_SIZE{ (|operand_a_tag_ex_i) & dift_proppol_load.en_addr }};
+
+    // handle propagation mode policy
+    unique case(dift_proppol_load.mode)
+      DIFT_PROPMODE2_OR:   temp_tag_result = temp_tag_value | temp_tag_addr;
+      DIFT_PROPMODE2_AND:  temp_tag_result = temp_tag_value & temp_tag_addr;
+      DIFT_PROPMODE2_ZERO: temp_tag_result = '0;
+      DIFT_PROPMODE2_ONE:  temp_tag_result = '1;
+      default:             temp_tag_result = '0;
+    endcase
+  end
+
+  // output to register file
+  assign data_rtag_ex_o = (data_rvalid_i == 1'b1) ? temp_tag_result : tag_value_saved_in_reg;
 `endif
 
   // output to data interface
   assign data_addr_o   = data_addr_int;
   assign data_wdata_o  = data_wdata;
 `ifdef DIFT_ACTIVE
-  if (DIFT_TAG_SIZE == 1)
-    assign data_wtag_o = {4{data_wtag_ex_i}};
-  else if (DIFT_TAG_SIZE == 4)
-    assign data_wtag_o = data_wtag_ex_i;
+  assign data_wtag_o   = data_wtag;
 `endif
   assign data_we_o     = data_we_ex_i;
   assign data_be_o     = data_be;

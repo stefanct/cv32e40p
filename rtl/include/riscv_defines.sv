@@ -190,11 +190,62 @@ parameter VEC_MODE8  = 2'b11;
 
 
 
-// DIFT OPERATIONS
+//
+// DIFT
+// 
 
+// DIFT operations
 parameter DIFT_OP_TAGSET = 3'b000;
 parameter DIFT_OP_TAGRD  = 3'b001;
 
+// DIFT types
+typedef logic[3:0] dift_opclass_t;      // operation classes (instruction classes)
+typedef logic[1:0] dift_propmode2_t;    // propagation mode - 2 bit type
+typedef logic      dift_propmode1_t;    // propagation mode - 1 bit type
+typedef struct packed {
+  logic            en_value;
+  logic            en_addr;
+  dift_propmode2_t mode;
+} dift_proppol_mem_t;   // propagation policy for memory operations (loads, stores)
+
+/*
+// TODO can probably be removed
+typedef logic[2:0] dift_proppol_t;  // propagation policy type
+// DIFT propagation policies
+parameter DIFT_PROPPOL_NONE  = 3'b000;  // no propagation needed
+parameter DIFT_PROPPOL_ZERO  = 3'b001;  // tag result is hardcoded 0 (not set)
+parameter DIFT_PROPPOL_ONE   = 3'b010;  // tag result is hardcoded 1 (set)
+parameter DIFT_PROPPOL_FIXED = 3'b011;  // tag result is configured with a fixed value (either 0 or 1)
+parameter DIFT_PROPPOL_ALU   = 3'b100;  // tag is propagated with the configured policy - for ALU operations
+parameter DIFT_PROPPOL_SHIFT = 3'b101;  // tag is propagated with the configured policy - specifically for shift operations
+parameter DIFT_PROPPOL_LOAD  = 3'b110;  // tag is propagated with the configured policy - specifically for load operations 
+parameter DIFT_PROPPOL_STORE = 3'b111;  // tag is propagated with the configured policy - specifically for store operations
+*/
+
+// DIFT propagation mode
+// 2bit propmode
+parameter DIFT_PROPMODE2_OR   = 2'b00;
+parameter DIFT_PROPMODE2_AND  = 2'b01;
+parameter DIFT_PROPMODE2_ZERO = 2'b10;
+parameter DIFT_PROPMODE2_ONE  = 2'b11;
+// 1bit propmode
+parameter DIFT_PROPMODE1_ZERO = 1'b0;
+parameter DIFT_PROPMODE1_ONE  = 1'b1;
+
+// DIFT operation classes (instruction classes)
+parameter DIFT_OPCLASS_XUI    = 4'b0000; // Upper Immediate: LUI, AUIPC
+parameter DIFT_OPCLASS_JUMP   = 4'b0001; // Jump: JAL, JALR
+parameter DIFT_OPCLASS_BRANCH = 4'b0010; // Branch: BEQ, BNE, BLT, BGE, BLTU, BGEU
+parameter DIFT_OPCLASS_LOAD   = 4'b0011; // Load: LB, LH, LW, LBU, LHU
+parameter DIFT_OPCLASS_STORE  = 4'b0100; // Store: SB, SH, SW
+parameter DIFT_OPCLASS_ALU    = 4'b0101; // ALU: ADDI, XORI, ORI, ANDI, ADD, SUB, XOR, OR, AND
+parameter DIFT_OPCLASS_SHIFT  = 4'b0110; // Shift: SLLI, SRLI, SRAI, SLL, SRL, SRA
+parameter DIFT_OPCLASS_COMP   = 4'b0111; // Compare: SLTI, SLTIU, SLT, SLTU
+parameter DIFT_OPCLASS_SYS    = 4'b1000; // System: FENCE, FENCE.I, ECALL, EBREAK
+parameter DIFT_OPCLASS_CSR    = 4'b1001; // CSR: CSRRW, CSRRS, CSRRC, CSRRWI, CSRRSI, CSRRCI
+parameter DIFT_OPCLASS_MUL    = 4'b1010; // RV32M instructions
+parameter DIFT_OPCLASS_FLOAT  = 4'b1011; // RV32F instructions
+parameter DIFT_OPCLASS_OTHER  = 4'b1100; // all other instructions (e.g. custom extensions like XPulp)
 
 
 /////////////////////////////////////////////////////////
