@@ -239,6 +239,7 @@ module riscv_core
   dift_tag_t      operand_a_tag_ex;
   dift_tag_t      operand_b_tag_ex;
   dift_tag_t      operand_c_tag_ex;
+  dift_tpcr_t     dift_tpcr;
   // DIFT tag manipulation
   logic           dift_en_ex;
   logic [ 2:0]    dift_operator_ex;
@@ -891,6 +892,7 @@ module riscv_core
     .operand_a_tag_i            ( operand_a_tag_ex             ),
     .operand_b_tag_i            ( operand_b_tag_ex             ),
     .operand_c_tag_i            ( operand_c_tag_ex             ),
+    .dift_tpcr_i                ( dift_tpcr                    ),
     
     .dift_en_i                  ( dift_en_ex                   ),
     .dift_operator_i            ( dift_operator_ex             ),
@@ -1120,8 +1122,8 @@ module riscv_core
 
     // DIFT configuration signals
 `ifdef DIFT_ACTIVE
-    .dift_tpr_o              (),   // not used yet
-    .dift_tcr_o              (),   // not used yet
+    .dift_tpcr_o             ( dift_tpcr          ),
+    .dift_tccr_o             (),    // not used yet
 `endif
 
     // performance counter related signals

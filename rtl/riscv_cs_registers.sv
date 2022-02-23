@@ -125,8 +125,8 @@ module riscv_cs_registers
 
   // DIFT extension
 `ifdef DIFT_ACTIVE
-  output logic [16:0]     dift_tpr_o,     // directly output the TPR (Tag Propagation Register) content
-  output logic [21:0]     dift_tcr_o,     // directly output the TCR (Tag Check Register) content
+  output dift_tpcr_t      dift_tpcr_o,  // directly output the TPCR (Tag Propagation Configuration Register) content
+  output logic [21:0]     dift_tccr_o,  // directly output the TCCR (Tag Check Configuration Register) content
 `endif
 
   // Performance Counters
@@ -295,8 +295,8 @@ module riscv_cs_registers
 
 `ifdef DIFT_ACTIVE
   // DIFT signals
-  logic [31:0] dift_tpr_q, dift_tpr_n;
-  logic [31:0] dift_tcr_q, dift_tcr_n;
+  dift_tpcr_t dift_tpr_q, dift_tpr_n;
+  dift_tpcr_t dift_tcr_q, dift_tcr_n;
 `endif
 
 
@@ -974,8 +974,8 @@ end //PULP_SECURE
   assign debug_ebreaku_o      = dcsr_q.ebreaku;
 
 `ifdef DIFT_ACTIVE
-  assign dift_tpr_o       = dift_tpr_q;
-  assign dift_tcr_o       = dift_tcr_q;
+  assign dift_tpcr_o      = dift_tpr_q;
+  assign dift_tccr_o      = dift_tcr_q;
 `endif
 
 
@@ -1072,7 +1072,25 @@ end //PULP_SECURE
       mscratch_q  <= '0;
 
 `ifdef DIFT_ACTIVE
-      dift_tpr_q  <= '0;
+      dift_tpr_q  <= '{ //{13{1'b0}}, 19'b1000_1000_00_00_10_0_00_00 };
+          reserved: '0,
+          store: '{
+              en_value: 1'b1,
+              en_addr:  1'b0,
+              mode:     DIFT_PROPMODE2_OR
+            },
+          load:  '{
+              en_value: 1'b1, 
+              en_addr:  1'b0,
+              mode:     DIFT_PROPMODE2_OR
+            },
+          alu:            DIFT_PROPMODE2_OR,
+          shift:          DIFT_PROPMODE2_OR,
+          comp:           DIFT_PROPMODE2_ZERO,
+          csr:            DIFT_PROPMODE1_ZERO,
+          mul:            DIFT_PROPMODE2_OR,
+          float:          DIFT_PROPMODE2_OR
+        };
       dift_tcr_q  <= '0;
 `endif
     end

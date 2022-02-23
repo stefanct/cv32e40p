@@ -208,6 +208,18 @@ typedef struct packed {
   dift_propmode2_t mode;
 } dift_proppol_mem_t;   // propagation policy for memory operations (loads, stores)
 
+typedef struct packed {
+  logic [31:19]         reserved;   // [31:19]
+  dift_proppol_mem_t    store;      // [18:15]
+  dift_proppol_mem_t    load;       // [14:11]
+  dift_propmode2_t      alu;        // [10: 9]
+  dift_propmode2_t      shift;      // [ 8: 7]
+  dift_propmode2_t      comp;       // [ 6: 5]
+  dift_propmode1_t      csr;        // [    4]
+  dift_propmode2_t      mul;        // [ 3: 2]
+  dift_propmode2_t      float;      // [ 1: 0]
+} dift_tpcr_t;
+
 /*
 // TODO can probably be removed
 typedef logic[2:0] dift_proppol_t;  // propagation policy type

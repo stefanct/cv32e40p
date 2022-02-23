@@ -18,6 +18,9 @@ module dift_tag_propagation
     // type of instruction that is executed
     input  dift_opclass_t opclass_i,
 
+    // TPCR (tag propagation configuration register)
+    input  dift_tpcr_t    tpcr_i,
+
     // calculated output tag
     output dift_tag_t     result_o
 );
@@ -31,19 +34,15 @@ module dift_tag_propagation
   dift_propmode2_t   policy_mul;
   dift_propmode2_t   policy_float;
 
-  // TODO: use actual values from CSR DIFT tag propagation configuration register (TPR)
-  // policy_load_selection = tpr_i[1:0];
-  // ...
-  // for now (development): config is hardcoded right here
-  assign policy_store.en_value = 1'b1;
-  assign policy_store.en_addr  = 1'b0;
-  assign policy_store.mode     = DIFT_PROPMODE2_OR;
-  assign policy_alu   = DIFT_PROPMODE2_OR;
-  assign policy_shift = DIFT_PROPMODE2_OR;
-  assign policy_comp  = DIFT_PROPMODE2_ZERO;
-  assign policy_csr   = DIFT_PROPMODE1_ZERO;
-  assign policy_mul   = DIFT_PROPMODE2_OR;
-  assign policy_float = DIFT_PROPMODE2_OR;
+  assign policy_store.en_value = tpcr_i[   18];
+  assign policy_store.en_addr  = tpcr_i[   17];
+  assign policy_store.mode     = tpcr_i[16:15];
+  assign policy_alu   = tpcr_i[10:9];
+  assign policy_shift = tpcr_i[ 8:7];
+  assign policy_comp  = tpcr_i[ 6:5];
+  assign policy_csr   = tpcr_i[   4];
+  assign policy_mul   = tpcr_i[ 3:2];
+  assign policy_float = tpcr_i[ 1:0];
 
 
   // operation class mux
