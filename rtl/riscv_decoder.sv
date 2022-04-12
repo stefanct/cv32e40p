@@ -228,7 +228,7 @@ module riscv_decoder
       
       OPCODE_OP,
       OPCODE_OPIMM: begin
-        if ((instr_rdata_i[6:0] == OPCODE_OPIMM) && instr_rdata_i[31:25] == 7'b0000001)
+        if ((instr_rdata_i[6:0] == OPCODE_OP) && instr_rdata_i[31:25] == 7'b0000001)
           dift_opclass_o = DIFT_OPCLASS_MUL;
         else begin
           case (instr_rdata_i[14:12])

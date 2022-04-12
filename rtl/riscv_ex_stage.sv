@@ -123,6 +123,7 @@ module riscv_ex_stage
   input  dift_tag_t     operand_b_tag_i,
   input  dift_tag_t     operand_c_tag_i,
   input  dift_tpcr_t    dift_tpcr_i,
+  output dift_tag_t     dift_tag_result_o,
   // DIFT Tag Manipulation
   input  logic          dift_en_i,
   input  logic [ 2:0]   dift_operator_i,
@@ -330,6 +331,8 @@ module riscv_ex_stage
     // output (resulting tag)
     .result_o             ( tag_propagation_result )
   );
+
+  assign dift_tag_result_o = tag_propagation_result;
 
   riscv_dift_tag_manipulation
   dift_tag_manipulation_i

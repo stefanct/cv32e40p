@@ -236,9 +236,9 @@ parameter DIFT_PROPPOL_STORE = 3'b111;  // tag is propagated with the configured
 
 // DIFT propagation mode
 // 2bit propmode
-parameter DIFT_PROPMODE2_OR   = 2'b00;
-parameter DIFT_PROPMODE2_AND  = 2'b01;
-parameter DIFT_PROPMODE2_ZERO = 2'b10;
+parameter DIFT_PROPMODE2_ZERO = 2'b00;
+parameter DIFT_PROPMODE2_OR   = 2'b01;
+parameter DIFT_PROPMODE2_AND  = 2'b10;
 parameter DIFT_PROPMODE2_ONE  = 2'b11;
 // 1bit propmode
 parameter DIFT_PROPMODE1_ZERO = 1'b0;

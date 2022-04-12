@@ -240,6 +240,7 @@ module riscv_core
   dift_tag_t      operand_b_tag_ex;
   dift_tag_t      operand_c_tag_ex;
   dift_tpcr_t     dift_tpcr;
+  dift_tag_t      dift_tag_result;
   // DIFT tag manipulation
   logic           dift_en_ex;
   logic [ 2:0]    dift_operator_ex;
@@ -893,6 +894,7 @@ module riscv_core
     .operand_b_tag_i            ( operand_b_tag_ex             ),
     .operand_c_tag_i            ( operand_c_tag_ex             ),
     .dift_tpcr_i                ( dift_tpcr                    ),
+    .dift_tag_result_o          ( dift_tag_result              ), // needed as input for LSU (for store operations)
     
     .dift_en_i                  ( dift_en_ex                   ),
     .dift_operator_i            ( dift_operator_ex             ),
@@ -999,7 +1001,7 @@ module riscv_core
     .data_type_ex_i        ( data_type_ex       ),
     .data_wdata_ex_i       ( alu_operand_c_ex   ),
 `ifdef DIFT_ACTIVE
-    .data_wtag_ex_i        ( operand_c_tag_ex   ),
+    .data_wtag_ex_i        ( dift_tag_result    ),
 `endif
     .data_reg_offset_ex_i  ( data_reg_offset_ex ),
     .data_sign_ext_ex_i    ( data_sign_ext_ex   ),  // sign extension
@@ -1014,6 +1016,7 @@ module riscv_core
 `ifdef DIFT_ACTIVE
     .operand_a_tag_ex_i    ( operand_a_tag_ex   ),
     .operand_b_tag_ex_i    ( operand_b_tag_ex   ),
+    .dift_proppol_load_i   ( dift_tpcr.load     ),
 `endif
     .addr_useincr_ex_i     ( useincr_addr_ex    ),
 

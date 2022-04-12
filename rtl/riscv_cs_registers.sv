@@ -1072,7 +1072,7 @@ end //PULP_SECURE
       mscratch_q  <= '0;
 
 `ifdef DIFT_ACTIVE
-      dift_tpr_q  <= '{ //{13{1'b0}}, 19'b1000_1000_00_00_10_0_00_00 };
+      dift_tpr_q  <= '{ //{13{1'b0}}, 19'b1001_1001_01_01_00_0_01_01 };
           reserved: '0,
           store: '{
               en_value: 1'b1,

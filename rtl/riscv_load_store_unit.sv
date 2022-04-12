@@ -69,7 +69,7 @@ module riscv_load_store_unit
 `ifdef DIFT_ACTIVE
     input  dift_tag_t    operand_a_tag_ex_i,   // tag bits of operand a (address), needed for LOADs only
     input  dift_tag_t    operand_b_tag_ex_i,   // tag bits of operand b (address), needed for LOADs only
-    //input  dift_proppol_mem_t dift_proppol_load_i, // configured propagation policy for load instructions
+    input  dift_proppol_mem_t dift_proppol_load_i,  // configured propagation policy for load instructions
 `endif
     input  logic         addr_useincr_ex_i,    // use a + b or just a for address   -> from ex stage
 
@@ -107,6 +107,8 @@ module riscv_load_store_unit
 `ifdef DIFT_ACTIVE
   logic [3:0]   data_wtag;
   logic [3:0]   rtag_q;
+  
+  dift_tag_t    address_tag_q;
 `endif
 
   ///////////////////////////////// BE generation ////////////////////////////////
@@ -233,21 +235,6 @@ module riscv_load_store_unit
   logic [31:0] rdata_h_ext; // sign extension for half words
   logic [31:0] rdata_b_ext; // sign extension for bytes
 
-`ifdef DIFT_ACTIVE
-  logic [3:0]  data_rtag_ext;
-
-  // take care of misaligned words (tag bits)
-  always_comb
-  begin
-    case (rdata_offset_q)
-      2'b00: data_rtag_ext = data_rtag_i[3:0];
-      2'b01: data_rtag_ext = {data_rtag_i[0],   rtag_q[3:1]};
-      2'b10: data_rtag_ext = {data_rtag_i[1:0], rtag_q[3:2]};
-      2'b11: data_rtag_ext = {data_rtag_i[2:0], rtag_q[3]  };
-    endcase
-  end
-`endif
-
   // take care of misaligned words
   always_comb
   begin
@@ -361,6 +348,57 @@ module riscv_load_store_unit
   end
 
 
+`ifdef DIFT_ACTIVE
+  logic [3:0] data_rtag_ext;
+
+  logic [3:0] rtag_w_ext; // sign extension for words, actually only misaligned assembly
+  logic [3:0] rtag_h_ext; // sign extension for half words
+  logic [3:0] rtag_b_ext; // sign extension for bytes
+
+  // take care of misaligned words (tag bits)
+  always_comb
+  begin
+    case (rdata_offset_q)
+      2'b00: rtag_w_ext = data_rtag_i[3:0];
+      2'b01: rtag_w_ext = {data_rtag_i[  0], rtag_q[3:1]};
+      2'b10: rtag_w_ext = {data_rtag_i[1:0], rtag_q[3:2]};
+      2'b11: rtag_w_ext = {data_rtag_i[2:0], rtag_q[  3]};
+    endcase
+  end
+
+  // sign extension for half words (tag bits)
+  always_comb
+  begin
+    case (rdata_offset_q)
+      2'b00: rtag_h_ext = {2'b00, data_rtag_i[1:0]};
+      2'b01: rtag_h_ext = {2'b00, data_rtag_i[2:1]};
+      2'b10: rtag_h_ext = {2'b00, data_rtag_i[3:2]};
+      2'b11: rtag_h_ext = {2'b00, data_rtag_i[0], rtag_q[3]};
+    endcase // case (rdata_offset_q)
+  end
+
+  // sign extension for bytes (tag bits)
+  always_comb
+  begin
+    case (rdata_offset_q)
+      2'b00: rtag_b_ext = {3'b000, data_rtag_i[0]};
+      2'b01: rtag_b_ext = {3'b000, data_rtag_i[1]};
+      2'b10: rtag_b_ext = {3'b000, data_rtag_i[2]};
+      2'b11: rtag_b_ext = {3'b000, data_rtag_i[3]};
+    endcase // case (rdata_offset_q)
+  end
+
+  // select word, half word or byte sign extended version
+  always_comb
+  begin
+    case (data_type_q)
+      2'b00:       data_rtag_ext = rtag_w_ext;
+      2'b01:       data_rtag_ext = rtag_h_ext;
+      2'b10,2'b11: data_rtag_ext = rtag_b_ext;
+    endcase //~case(rdata_type_q)
+  end
+`endif
+
 
   always_ff @(posedge clk, negedge rst_n)
   begin
@@ -403,52 +441,60 @@ module riscv_load_store_unit
 `ifdef DIFT_ACTIVE
   // DIFT: Tag Propagation for load instructions
   // (LSU specific part, which cannot be handled directly inside the DIFT Tag Propagation module in EX stage)
-  dift_proppol_mem_t  dift_proppol_load;
-  dift_tag_t    tag_value_current_input;
-  dift_tag_t    tag_value_saved_in_reg;
+  dift_tag_t    rtag_value;
   dift_tag_t    temp_tag_value;
   dift_tag_t    temp_tag_addr;
   dift_tag_t    temp_tag_result;
-
-  // TODO: use actual values from CSR DIFT tag propagation configuration register (TPR)
-  // e.g.: dift_prop_policy = tpr_i[3:0];
-  // for now (development): config is hardcoded right here
-  assign dift_proppol_load.en_value = 1'b1;
-  assign dift_proppol_load.en_addr  = 1'b0;
-  assign dift_proppol_load.mode     = DIFT_PROPMODE2_OR;
+  dift_tag_t    temp_tag_result_type;
 
   always_comb
   begin
     if (DIFT_TAG_SIZE == 1) begin
       // OR reduction of the 4 tag bits to a single tag bit
-      tag_value_current_input = |data_rtag_ext;
-      tag_value_saved_in_reg  = |rtag_q;
+      rtag_value = |data_rtag_ext;
     end
     else begin // DIFT_TAG_SIZE == 4
       // no reduction needed, as core also uses 4 tag bits
-      tag_value_current_input = data_rtag_ext;
-      tag_value_saved_in_reg  = rtag_q;
+      rtag_value = data_rtag_ext;
     end
 
     // handle value and address propagation enable policies
     //   operand_a holds the base address (from register)
     //   operand_b holds the address offset (immeadiate value) -> is always untainted -> no need to process
     //   operand_c holds the write value for stores -> not needed for propagation of load instructions
-    temp_tag_value = tag_value_current_input & {DIFT_TAG_SIZE{ dift_proppol_load.en_value }};
-    temp_tag_addr  = {DIFT_TAG_SIZE{ (|operand_a_tag_ex_i) & dift_proppol_load.en_addr }};
+    temp_tag_value = rtag_value & {DIFT_TAG_SIZE{ dift_proppol_load_i.en_value }};
+    temp_tag_addr  = {DIFT_TAG_SIZE{ (|address_tag_q) & dift_proppol_load_i.en_addr }};
 
     // handle propagation mode policy
-    unique case(dift_proppol_load.mode)
+    unique case(dift_proppol_load_i.mode)
       DIFT_PROPMODE2_OR:   temp_tag_result = temp_tag_value | temp_tag_addr;
       DIFT_PROPMODE2_AND:  temp_tag_result = temp_tag_value & temp_tag_addr;
       DIFT_PROPMODE2_ZERO: temp_tag_result = '0;
       DIFT_PROPMODE2_ONE:  temp_tag_result = '1;
       default:             temp_tag_result = '0;
     endcase
+
+    // output to register file
+    temp_tag_result_type = temp_tag_result;
+    if (DIFT_TAG_SIZE == 4) begin
+      case(data_type_ex_i)
+        2'b00:  // word
+        begin
+          temp_tag_result_type = temp_tag_result;
+        end
+        2'b01:  // halfword
+        begin
+          temp_tag_result_type = temp_tag_result & 4'b0011;
+        end
+        2'b10:  // byte
+        begin
+          temp_tag_result_type = temp_tag_result & 4'b0001;
+        end
+      endcase
+    end
   end
 
-  // output to register file
-  assign data_rtag_ex_o = (data_rvalid_i == 1'b1) ? temp_tag_result : tag_value_saved_in_reg;
+  assign data_rtag_ex_o = temp_tag_result_type;
 `endif
 
   // output to data interface
@@ -601,6 +647,27 @@ module riscv_load_store_unit
   assign data_addr_int = (addr_useincr_ex_i) ? (operand_a_ex_i + operand_b_ex_i) : operand_a_ex_i;
 
   assign busy_o = (CS == WAIT_RVALID) || (CS == WAIT_RVALID_EX_STALL) || (CS == IDLE_EX_STALL) || (data_req_o == 1'b1);
+
+`ifdef DIFT_ACTIVE
+  // FF for address tag (operand_a_tag)
+  //  has to be stored in a FF, because the address (and the corresponding tag) is
+  //  only available as input when the read request is issued to the memory interface
+  //  however, the tag propagation logic is only executed when the result (read data)
+  //  is there -> in the meantime the operand_a/_tag has already changed
+  always_ff @(posedge clk, negedge rst_n)
+  begin
+    if(rst_n == 1'b0)
+    begin
+      address_tag_q <= '0;
+    end
+    else if (((CS == IDLE) || (CS == WAIT_RVALID)) && data_req_ex_i)  // "load" address to FF only when a new request is issued
+    begin
+      address_tag_q <= operand_a_tag_ex_i;
+    end
+  end
+
+`endif
+
 
 
   //////////////////////////////////////////////////////////////////////////////
