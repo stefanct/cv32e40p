@@ -25,6 +25,7 @@
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
+`include "riscv_dift_config.sv"
 
 import riscv_defines::*;
 
@@ -55,6 +56,9 @@ module riscv_if_stage
     input  logic                   instr_gnt_i,
     input  logic                   instr_rvalid_i,
     input  logic [RDATA_WIDTH-1:0] instr_rdata_i,
+`ifdef DIFT_ACTIVE
+    input  logic             [3:0] instr_rtag_i,
+`endif
     input  logic                   instr_err_pmp_i,
 
     // Output of IF Pipeline stage
@@ -62,6 +66,9 @@ module riscv_if_stage
     output logic              is_hwlp_id_o,          // currently served instruction was the target of a hwlp
     output logic              instr_valid_id_o,      // instruction in IF/ID pipeline is valid
     output logic       [31:0] instr_rdata_id_o,      // read instruction is sampled and sent to ID stage for decoding
+`ifdef DIFT_ACTIVE
+    output logic        [3:0] instr_rtag_id_o,       // DIFT tag bits of read instruction
+`endif
     output logic              is_compressed_id_o,    // compressed decoder thinks this is a compressed instruction
     output logic              illegal_c_insn_id_o,   // compressed decoder thinks this is an invalid instruction
     output logic       [31:0] pc_if_o,
@@ -114,6 +121,9 @@ module riscv_if_stage
   logic       [31:0] fetch_rdata;
   logic       [31:0] fetch_addr;
   logic              is_hwlp_id_q, fetch_is_hwlp;
+`ifdef DIFT_ACTIVE
+  logic        [3:0] fetch_rtag;
+`endif
 
   logic       [31:0] exc_pc;
 
@@ -183,6 +193,9 @@ module riscv_if_stage
         .ready_i           ( fetch_ready                 ),
         .valid_o           ( fetch_valid                 ),
         .rdata_o           ( fetch_rdata                 ),
+`ifdef DIFT_ACTIVE
+        .rtag_o            ( fetch_rtag                  ),
+`endif
         .addr_o            ( fetch_addr                  ),
         .is_hwlp_o         ( fetch_is_hwlp               ),
 
@@ -194,6 +207,9 @@ module riscv_if_stage
         .instr_err_pmp_i   ( instr_err_pmp_i             ),
         .fetch_failed_o    ( fetch_failed                ),
         .instr_rdata_i     ( instr_rdata_i               ),
+`ifdef DIFT_ACTIVE
+        .instr_rtag_i      ( instr_rtag_i                ),
+`endif
 
         // Prefetch Buffer Status
         .busy_o            ( prefetch_busy               )
@@ -369,6 +385,9 @@ module riscv_if_stage
     begin
       instr_valid_id_o      <= 1'b0;
       instr_rdata_id_o      <= '0;
+`ifdef DIFT_ACTIVE
+      instr_rtag_id_o       <= '0;
+`endif
       illegal_c_insn_id_o   <= 1'b0;
       is_compressed_id_o    <= 1'b0;
       pc_id_o               <= '0;
@@ -384,6 +403,9 @@ module riscv_if_stage
       begin
         instr_valid_id_o    <= 1'b1;
         instr_rdata_id_o    <= instr_decompressed;
+`ifdef DIFT_ACTIVE
+        instr_rtag_id_o     <= fetch_rtag;
+`endif
         illegal_c_insn_id_o <= illegal_c_insn;
         is_compressed_id_o  <= instr_compressed_int;
         pc_id_o             <= pc_if_o;

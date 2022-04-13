@@ -138,6 +138,10 @@ module riscv_core
   logic [N_HWLP-1:0] hwlp_dec_cnt_id;
   logic              instr_valid_id;
   logic [31:0]       instr_rdata_id;    // Instruction sampled inside IF stage
+`ifdef DIFT_ACTIVE
+  logic  [3:0]       instr_rtag_id;     // Tag bits of sampled instruction
+`endif
+  
   logic              is_compressed_id;
   logic              is_fetch_failed_id;
   logic              illegal_c_insn_id; // Illegal compressed instruction sent to ID stage
@@ -250,6 +254,12 @@ module riscv_core
   dift_tag_t      dift_operand_a_tag_ex;
   dift_tag_t      dift_operand_b_tag_ex;
   dift_tag_t      dift_operand_c_tag_ex;
+  // DIFT tag check additionally needed signals
+  logic [ 1:0]    jump_in_dec;
+  dift_tag_t      jump_target_tag;
+  dift_tccr_t     dift_tccr;
+  logic           dift_trap;
+  dift_trap_t     dift_trap_type;
 `endif
 
   // Register Write Control
@@ -516,6 +526,9 @@ module riscv_core
     .instr_gnt_i         ( instr_gnt_pmp     ),
     .instr_rvalid_i      ( instr_rvalid_i    ),
     .instr_rdata_i       ( instr_rdata_i     ),
+`ifdef DIFT_ACTIVE
+    .instr_rtag_i        ( instr_rtag_i      ),
+`endif
     .instr_err_pmp_i     ( instr_err_pmp     ),
 
     // outputs to ID stage
@@ -523,6 +536,9 @@ module riscv_core
     .is_hwlp_id_o        ( is_hwlp_id        ),
     .instr_valid_id_o    ( instr_valid_id    ),
     .instr_rdata_id_o    ( instr_rdata_id    ),
+`ifdef DIFT_ACTIVE
+    .instr_rtag_id_o     ( instr_rtag_id     ),
+`endif
     .is_compressed_id_o  ( is_compressed_id  ),
     .illegal_c_insn_id_o ( illegal_c_insn_id ),
     .pc_if_o             ( pc_if             ),
@@ -716,6 +732,9 @@ module riscv_core
     .dift_operand_a_tag_ex_o      ( dift_operand_a_tag_ex   ),
     .dift_operand_b_tag_ex_o      ( dift_operand_b_tag_ex   ),
     .dift_operand_c_tag_ex_o      ( dift_operand_c_tag_ex   ),
+    // DIFT tag check additional needed signals
+    .jump_in_dec_o                ( jump_in_dec             ),
+    .jump_target_tag_o            ( jump_target_tag         ),
 `endif
 
     // CSR ID/EX
@@ -1222,6 +1241,30 @@ module riscv_core
     assign data_err_pmp  = 1'b0;
   end
   endgenerate
+
+
+
+////////////////////////////
+//       DIFT UNIT        //
+//       Tag Check        //
+////////////////////////////
+`ifdef DIFT_ACTIVE
+
+  dift_tag_check
+  dift_tag_check_i
+  (
+    .instr_tag_i        ( instr_rtag_id         ),
+    .jump_in_i          ( jump_in_dec           ),
+    .jump_target_tag_i  ( jump_target_tag       ),
+    .operand_a_tag_i    ( operand_a_tag_ex      ),
+    .operand_b_tag_i    ( operand_b_tag_ex      ),
+    .opclass_i          ( dift_opclass_ex       ),
+    .tccr_i             ( dift_tccr             ),
+
+    .trap_o             ( dift_trap             ),
+    .trap_type_o        ( dift_trap_type        )
+  );
+`endif
 
 
 `ifndef VERILATOR

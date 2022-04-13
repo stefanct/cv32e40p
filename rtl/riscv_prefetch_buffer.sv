@@ -20,6 +20,8 @@
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
+`include "riscv_dift_config.sv"
+
 // input port: send address one cycle before the data
 // clear_i clears the FIFO for the following cycle. in_addr_i can be sent in
 // this cycle already
@@ -41,6 +43,9 @@ module riscv_prefetch_buffer
   input  logic        ready_i,
   output logic        valid_o,
   output logic [31:0] rdata_o,
+`ifdef DIFT_ACTIVE
+  output logic  [3:0] rtag_o,
+`endif
   output logic [31:0] addr_o,
   output logic        is_hwlp_o, // is set when the currently served data is from a hwloop
 
@@ -49,6 +54,9 @@ module riscv_prefetch_buffer
   input  logic        instr_gnt_i,
   output logic [31:0] instr_addr_o,
   input  logic [31:0] instr_rdata_i,
+`ifdef DIFT_ACTIVE
+  input  logic  [3:0] instr_rtag_i,
+`endif
   input  logic        instr_rvalid_i,
   input  logic        instr_err_pmp_i,
   output logic        fetch_failed_o,
@@ -94,6 +102,9 @@ module riscv_prefetch_buffer
 
     .in_addr_i             ( instr_addr_q      ),
     .in_rdata_i            ( instr_rdata_i     ),
+`ifdef DIFT_ACTIVE
+    .in_rtag_i             ( instr_rtag_i      ),
+`endif
     .in_valid_i            ( fifo_valid        ),
     .in_ready_o            ( fifo_ready        ),
 
@@ -103,6 +114,9 @@ module riscv_prefetch_buffer
     .out_valid_o           ( valid_o           ),
     .out_ready_i           ( ready_i           ),
     .out_rdata_o           ( rdata_o           ),
+`ifdef DIFT_ACTIVE
+    .out_rtag_o            ( rtag_o            ),
+`endif
     .out_addr_o            ( addr_o            ),
     .unaligned_is_compressed_o ( unaligned_is_compressed ),
     .out_valid_stored_o    ( valid_stored      ),

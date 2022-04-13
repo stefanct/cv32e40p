@@ -126,7 +126,7 @@ module riscv_cs_registers
   // DIFT extension
 `ifdef DIFT_ACTIVE
   output dift_tpcr_t      dift_tpcr_o,  // directly output the TPCR (Tag Propagation Configuration Register) content
-  output logic [21:0]     dift_tccr_o,  // directly output the TCCR (Tag Check Configuration Register) content
+  output dift_tccr_t      dift_tccr_o,  // directly output the TCCR (Tag Check Configuration Register) content
 `endif
 
   // Performance Counters
@@ -296,7 +296,7 @@ module riscv_cs_registers
 `ifdef DIFT_ACTIVE
   // DIFT signals
   dift_tpcr_t dift_tpr_q, dift_tpr_n;
-  dift_tpcr_t dift_tcr_q, dift_tcr_n;
+  dift_tccr_t dift_tcr_q, dift_tcr_n;
 `endif
 
 
@@ -1091,7 +1091,17 @@ end //PULP_SECURE
           mul:            DIFT_PROPMODE2_OR,
           float:          DIFT_PROPMODE2_OR
         };
-      dift_tcr_q  <= '0;
+      dift_tcr_q  <= '{ //{25{1'b0}}, 7'b1_1_000_1_1 };
+          reserved: '0,
+          exec:   DIFT_CHECKMODE1_ON,
+          jalr:   DIFT_CHECKMODE1_ON,
+          branch: '{
+              mode:               DIFT_CHECKMODE2_OFF,
+              single_mode_select: DIFT_CHECK_SINGLEMODESELECT_OP_A
+            },
+          store:  DIFT_CHECKMODE1_ON,
+          load:   DIFT_CHECKMODE1_ON
+        };
 `endif
     end
     else

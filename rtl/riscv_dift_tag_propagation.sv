@@ -25,6 +25,7 @@ module dift_tag_propagation
     output dift_tag_t     result_o
 );
 
+  // TODO: directly use the defined fields of the dift_tpcr_t type
   // configured policy per operation class
   dift_proppol_mem_t policy_store;
   dift_propmode2_t   policy_alu;

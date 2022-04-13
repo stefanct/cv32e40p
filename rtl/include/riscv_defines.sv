@@ -192,7 +192,7 @@ parameter VEC_MODE8  = 2'b11;
 
 //
 // DIFT
-// 
+//
 
 // DIFT operations
 parameter DIFT_OP_TAGSET = 3'b000;
@@ -200,25 +200,49 @@ parameter DIFT_OP_TAGRD  = 3'b001;
 
 // DIFT types
 typedef logic[3:0] dift_opclass_t;      // operation classes (instruction classes)
-typedef logic[1:0] dift_propmode2_t;    // propagation mode - 2 bit type
-typedef logic      dift_propmode1_t;    // propagation mode - 1 bit type
-typedef struct packed {
-  logic            en_value;
-  logic            en_addr;
-  dift_propmode2_t mode;
-} dift_proppol_mem_t;   // propagation policy for memory operations (loads, stores)
+typedef logic[2:0] dift_trap_t;
 
-typedef struct packed {
-  logic [31:19]         reserved;   // [31:19]
-  dift_proppol_mem_t    store;      // [18:15]
-  dift_proppol_mem_t    load;       // [14:11]
-  dift_propmode2_t      alu;        // [10: 9]
-  dift_propmode2_t      shift;      // [ 8: 7]
-  dift_propmode2_t      comp;       // [ 6: 5]
-  dift_propmode1_t      csr;        // [    4]
-  dift_propmode2_t      mul;        // [ 3: 2]
-  dift_propmode2_t      float;      // [ 1: 0]
-} dift_tpcr_t;
+    // propagation policies
+    typedef logic[1:0] dift_propmode2_t;    // propagation mode - 2 bit type
+    
+    typedef logic      dift_propmode1_t;    // propagation mode - 1 bit type
+    
+    typedef struct packed {
+      logic            en_value;
+      logic            en_addr;
+      dift_propmode2_t mode;
+    } dift_proppol_mem_t;   // propagation policy for memory operations (loads, stores)
+
+    typedef struct packed {
+      logic [31:19]         reserved;   // [31:19]
+      dift_proppol_mem_t    store;      // [18:15]
+      dift_proppol_mem_t    load;       // [14:11]
+      dift_propmode2_t      alu;        // [10: 9]
+      dift_propmode2_t      shift;      // [ 8: 7]
+      dift_propmode2_t      comp;       // [ 6: 5]
+      dift_propmode1_t      csr;        // [    4]
+      dift_propmode2_t      mul;        // [ 3: 2]
+      dift_propmode2_t      float;      // [ 1: 0]
+    } dift_tpcr_t;
+
+    // check policies
+    typedef logic[1:0]  dift_checkpol2_t;   // check policy - 2 bit type
+    typedef logic       dift_checkpol1_t;   // check policy - 1 bit type
+
+    typedef struct packed {
+      dift_checkpol2_t  mode;
+      logic             single_mode_select;
+    } dift_checkpol_b_t;    // check policy for branch operations
+    
+    typedef struct packed {
+      logic [31:7]      reserved; // [31: 7]
+      dift_checkpol1_t  exec;     // [    6]
+      dift_checkpol1_t  jalr;     // [    5]
+      dift_checkpol_b_t branch;   // [ 4: 2]
+      dift_checkpol1_t  store;    // [    1]
+      dift_checkpol1_t  load;     // [    0]
+    } dift_tccr_t;
+
 
 /*
 // TODO can probably be removed
@@ -234,7 +258,7 @@ parameter DIFT_PROPPOL_LOAD  = 3'b110;  // tag is propagated with the configured
 parameter DIFT_PROPPOL_STORE = 3'b111;  // tag is propagated with the configured policy - specifically for store operations
 */
 
-// DIFT propagation mode
+// DIFT propagation modes
 // 2bit propmode
 parameter DIFT_PROPMODE2_ZERO = 2'b00;
 parameter DIFT_PROPMODE2_OR   = 2'b01;
@@ -243,6 +267,19 @@ parameter DIFT_PROPMODE2_ONE  = 2'b11;
 // 1bit propmode
 parameter DIFT_PROPMODE1_ZERO = 1'b0;
 parameter DIFT_PROPMODE1_ONE  = 1'b1;
+
+// DIFT check modes
+// 2bit checkmode
+parameter DIFT_CHECKMODE2_OFF   = 2'b00;  // check disabled
+parameter DIFT_CHECKMODE2_OR    = 2'b01;  // check both operands OR-combined
+parameter DIFT_CHECKMODE2_AND   = 2'b10;  // check both operands AND-combined
+parameter DIFT_CHECKMODE2_SINGL = 2'b11;  // check single operand (which one is configured via single_mode_select)
+// 1bit checkmode
+parameter DIFT_CHECKMODE1_OFF   = 1'b0;   // check disabled
+parameter DIFT_CHECKMODE1_ON    = 1'b1;   // check enabled
+// single mode select
+parameter DIFT_CHECK_SINGLEMODESELECT_OP_A  = 1'b0; // use operand a for single operand check mode
+parameter DIFT_CHECK_SINGLEMODESELECT_OP_B  = 1'b1; // use operand b for single operand check mode
 
 // DIFT operation classes (instruction classes)
 parameter DIFT_OPCLASS_XUI    = 4'b0000; // Upper Immediate: LUI, AUIPC
@@ -258,6 +295,14 @@ parameter DIFT_OPCLASS_CSR    = 4'b1001; // CSR: CSRRW, CSRRS, CSRRC, CSRRWI, CS
 parameter DIFT_OPCLASS_MUL    = 4'b1010; // RV32M instructions
 parameter DIFT_OPCLASS_FLOAT  = 4'b1011; // RV32F instructions
 parameter DIFT_OPCLASS_OTHER  = 4'b1100; // all other instructions (e.g. custom extensions like XPulp)
+
+// DIFT trap types
+parameter DIFT_TRAP_TYPE_NONE = 3'b000;
+parameter DIFT_TRAP_TYPE_EXEC = 3'b001;
+parameter DIFT_TRAP_TYPE_JALR = 3'b010;
+parameter DIFT_TRAP_TYPE_BRAN = 3'b011;
+parameter DIFT_TRAP_TYPE_STOR = 3'b100;
+parameter DIFT_TRAP_TYPE_LOAD = 3'b101;
 
 
 /////////////////////////////////////////////////////////

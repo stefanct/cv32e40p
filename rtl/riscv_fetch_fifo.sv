@@ -19,6 +19,8 @@
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
+`include "riscv_dift_config.sv"
+
 // input port: send address one cycle before the data
 // clear_i clears the FIFO for the following cycle. in_addr_i can be sent in
 // this cycle already
@@ -33,6 +35,9 @@ module riscv_fetch_fifo
     // input port
     input  logic [31:0] in_addr_i,
     input  logic [31:0] in_rdata_i,
+`ifdef DIFT_ACTIVE
+    input  logic  [3:0] in_rtag_i,
+`endif
     input  logic        in_valid_i,
     output logic        in_ready_o,
 
@@ -43,6 +48,9 @@ module riscv_fetch_fifo
     output logic        out_valid_o,
     input  logic        out_ready_i,
     output logic [31:0] out_rdata_o,
+`ifdef DIFT_ACTIVE
+    output logic  [3:0] out_rtag_o,
+`endif
     output logic [31:0] out_addr_o,
     output logic        unaligned_is_compressed_o,
     output logic        out_valid_stored_o, // same as out_valid_o, except that if something is incoming now it is not included. This signal is available immediately as it comes directly out of FFs
@@ -54,11 +62,17 @@ module riscv_fetch_fifo
   // index 0 is used for output
   logic [0:DEPTH-1] [31:0]  addr_n,    addr_int,    addr_Q;
   logic [0:DEPTH-1] [31:0]  rdata_n,   rdata_int,   rdata_Q;
+`ifdef DIFT_ACTIVE
+  logic [0:DEPTH-1]  [3:0]  rtag_n,    rtag_int,    rtag_Q;
+`endif
   logic [0:DEPTH-1]         valid_n,   valid_int,   valid_Q;
   logic [0:1      ]         is_hwlp_n, is_hwlp_int, is_hwlp_Q;
 
   logic             [31:0]  addr_next;
   logic             [31:0]  rdata, rdata_unaligned;
+`ifdef DIFT_ACTIVE
+  logic              [3:0]  rtag,  rtag_unaligned;
+`endif
   logic                     valid, valid_unaligned;
 
   logic                     aligned_is_compressed, unaligned_is_compressed;
@@ -71,10 +85,16 @@ module riscv_fetch_fifo
 
   assign rdata = (valid_Q[0]) ? rdata_Q[0] : ( in_rdata_i & {32{in_valid_i}} );
   assign valid = valid_Q[0] || in_valid_i || is_hwlp_Q[1];
+`ifdef DIFT_ACTIVE
+  assign rtag  = (valid_Q[0]) ?  rtag_Q[0] : (  in_rtag_i &  {4{in_valid_i}} );
+`endif
 
   assign rdata_unaligned = (valid_Q[1]) ? {rdata_Q[1][15:0], rdata[31:16]} : {in_rdata_i[15:0], rdata[31:16]};
   // it is implied that rdata_valid_Q[0] is set
   assign valid_unaligned = (valid_Q[1] || (valid_Q[0] && in_valid_i));
+`ifdef DIFT_ACTIVE
+  assign rtag_unaligned  = (valid_Q[1]) ? {rtag_Q[1][1:0], rtag[3:2]} : {in_rtag_i[1:0], rtag[3:2]};
+`endif
 
   assign unaligned_is_compressed_o  = unaligned_is_compressed;
 
@@ -95,6 +115,9 @@ module riscv_fetch_fifo
     if (out_addr_o[1] && (~is_hwlp_Q[1])) begin
       // unaligned case
       out_rdata_o = rdata_unaligned;
+`ifdef DIFT_ACTIVE
+      out_rtag_o  = rtag_unaligned;
+`endif
 
       if (unaligned_is_compressed)
         out_valid_o = valid;
@@ -104,6 +127,9 @@ module riscv_fetch_fifo
       // aligned case
       out_rdata_o = rdata;
       out_valid_o = valid;
+`ifdef DIFT_ACTIVE
+      out_rtag_o  = rtag;
+`endif
     end
   end
 
@@ -146,6 +172,9 @@ module riscv_fetch_fifo
     rdata_int   = rdata_Q;
     valid_int   = valid_Q;
     is_hwlp_int = is_hwlp_Q;
+`ifdef DIFT_ACTIVE
+    rtag_int    = rtag_Q;
+`endif
 
     if (in_valid_i) begin
       for(int j = 0; j < DEPTH; j++) begin
@@ -153,6 +182,9 @@ module riscv_fetch_fifo
           addr_int[j]  = in_addr_i;
           rdata_int[j] = in_rdata_i;
           valid_int[j] = 1'b1;
+`ifdef DIFT_ACTIVE
+          rtag_int[j]  = in_rtag_i;
+`endif
 
           break;
         end
@@ -169,6 +201,10 @@ module riscv_fetch_fifo
           rdata_int[1]         = in_rdata_i;
           valid_int[1]         = 1'b1;
           valid_int[2:DEPTH-1] = '0;
+`ifdef DIFT_ACTIVE
+          rtag_int[0]          = out_rtag_o;
+          rtag_int[1]          = in_rtag_i;
+`endif
 
           // hardware loop incoming?
           is_hwlp_int[1] = in_is_hwlp_i;
@@ -188,6 +224,9 @@ module riscv_fetch_fifo
     rdata_n    = rdata_int;
     valid_n    = valid_int;
     is_hwlp_n  = is_hwlp_int;
+`ifdef DIFT_ACTIVE
+    rtag_n     = rtag_int;
+`endif
 
     if (out_ready_i && out_valid_o) begin
       is_hwlp_n = {is_hwlp_int[1], 1'b0};
@@ -197,8 +236,14 @@ module riscv_fetch_fifo
         for (int i = 0; i < DEPTH - 1; i++)
         begin
           rdata_n[i] = rdata_int[i + 1];
+`ifdef DIFT_ACTIVE
+          rtag_n[i]  = rtag_int[i + 1];
+`endif
         end
         rdata_n[DEPTH - 1] = 32'b0;
+`ifdef DIFT_ACTIVE
+        rtag_n[DEPTH - 1]  = 4'b0;
+`endif
         valid_n   = {valid_int[1:DEPTH-1], 1'b0};
       end else begin
         if (addr_int[0][1]) begin
@@ -211,8 +256,14 @@ module riscv_fetch_fifo
           for (int i = 0; i < DEPTH - 1; i++)
           begin
             rdata_n[i] = rdata_int[i + 1];
+`ifdef DIFT_ACTIVE
+            rtag_n[i]  = rtag_int[i + 1];
+`endif
           end
           rdata_n[DEPTH - 1] = 32'b0;
+`ifdef DIFT_ACTIVE
+          rtag_n[DEPTH - 1] = 4'b0;
+`endif
           valid_n  = {valid_int[1:DEPTH-1], 1'b0};
         end else begin
           // aligned case
@@ -225,8 +276,14 @@ module riscv_fetch_fifo
             for (int i = 0; i < DEPTH - 1; i++)
             begin
               rdata_n[i] = rdata_int[i + 1];
+`ifdef DIFT_ACTIVE
+              rtag_n[i]  = rtag_int[i + 1];
+`endif
             end
             rdata_n[DEPTH - 1] = 32'b0;
+`ifdef DIFT_ACTIVE
+            rtag_n[DEPTH - 1]  = 4'b0;
+`endif
             valid_n   = {valid_int[1:DEPTH-1], 1'b0};
           end
         end
@@ -246,6 +303,9 @@ module riscv_fetch_fifo
       rdata_Q   <= '{default: '0};
       valid_Q   <= '0;
       is_hwlp_Q <= '0;
+`ifdef DIFT_ACTIVE
+      rtag_Q    <= '0;
+`endif
     end
     else
     begin
@@ -259,6 +319,9 @@ module riscv_fetch_fifo
         rdata_Q   <= rdata_n;
         valid_Q   <= valid_n;
         is_hwlp_Q <= is_hwlp_n;
+`ifdef DIFT_ACTIVE
+        rtag_Q    <= rtag_n;
+`endif
       end
     end
   end

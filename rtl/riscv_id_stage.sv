@@ -186,6 +186,9 @@ module riscv_id_stage
     output dift_tag_t     dift_operand_a_tag_ex_o,
     output dift_tag_t     dift_operand_b_tag_ex_o,
     output dift_tag_t     dift_operand_c_tag_ex_o,
+    // additional signals needed for DIFT tag check
+    output logic [ 1:0]   jump_in_dec_o,
+    output dift_tag_t     jump_target_tag_o,
 `endif
 
     // CSR ID/EX
@@ -1620,6 +1623,9 @@ module riscv_id_stage
       dift_operand_a_tag_ex_o     <= '0;
       dift_operand_b_tag_ex_o     <= '0;
       dift_operand_c_tag_ex_o     <= '0;
+      
+      jump_in_dec_o               <= '0;
+      jump_target_tag_o           <= '0;
 `endif
 
 
@@ -1744,6 +1750,9 @@ module riscv_id_stage
           dift_operand_b_tag_ex_o   <= alu_operand_b_tag;
           dift_operand_c_tag_ex_o   <= alu_operand_c_tag;
         end;
+        // tag check signals
+        jump_in_dec_o               <= jump_in_dec;
+        jump_target_tag_o           <= jump_target_tag;
 `endif
 
         regfile_we_ex_o             <= regfile_we_id;
