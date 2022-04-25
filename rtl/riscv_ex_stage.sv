@@ -198,7 +198,7 @@ module riscv_ex_stage
   logic [31:0]    alu_result;
   logic [31:0]    mult_result;
   logic           alu_cmp_result;
-  
+
 `ifdef DIFT_ACTIVE
   logic [31:0]    dift_result;
   dift_tag_t      dift_result_tag;
@@ -350,7 +350,7 @@ module riscv_ex_stage
   );
 
 `endif
-    
+
 
   ////////////////////////////
   //     _    _    _   _    //
@@ -368,7 +368,7 @@ module riscv_ex_stage
     )
    alu_i
   (
-    .clk                 (                 ),
+    .clk                 ( clk             ),
     .rst_n               ( rst_n           ),
     .enable_i            ( alu_en_i        ),
     .operator_i          ( alu_operator_i  ),
