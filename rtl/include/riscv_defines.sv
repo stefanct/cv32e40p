@@ -204,9 +204,9 @@ typedef logic[2:0] dift_trap_t;
 
     // propagation policies
     typedef logic[1:0] dift_propmode2_t;    // propagation mode - 2 bit type
-    
+
     typedef logic      dift_propmode1_t;    // propagation mode - 1 bit type
-    
+
     typedef struct packed {
       logic            en_value;
       logic            en_addr;
@@ -233,7 +233,7 @@ typedef logic[2:0] dift_trap_t;
       dift_checkpol2_t  mode;
       logic             single_mode_select;
     } dift_checkpol_b_t;    // check policy for branch operations
-    
+
     typedef struct packed {
       logic [31:7]      reserved; // [31: 7]
       dift_checkpol1_t  exec;     // [    6]
@@ -254,7 +254,7 @@ parameter DIFT_PROPPOL_ONE   = 3'b010;  // tag result is hardcoded 1 (set)
 parameter DIFT_PROPPOL_FIXED = 3'b011;  // tag result is configured with a fixed value (either 0 or 1)
 parameter DIFT_PROPPOL_ALU   = 3'b100;  // tag is propagated with the configured policy - for ALU operations
 parameter DIFT_PROPPOL_SHIFT = 3'b101;  // tag is propagated with the configured policy - specifically for shift operations
-parameter DIFT_PROPPOL_LOAD  = 3'b110;  // tag is propagated with the configured policy - specifically for load operations 
+parameter DIFT_PROPPOL_LOAD  = 3'b110;  // tag is propagated with the configured policy - specifically for load operations
 parameter DIFT_PROPPOL_STORE = 3'b111;  // tag is propagated with the configured policy - specifically for store operations
 */
 
@@ -282,27 +282,27 @@ parameter DIFT_CHECK_SINGLEMODESELECT_OP_A  = 1'b0; // use operand a for single 
 parameter DIFT_CHECK_SINGLEMODESELECT_OP_B  = 1'b1; // use operand b for single operand check mode
 
 // DIFT operation classes (instruction classes)
-parameter DIFT_OPCLASS_XUI    = 4'b0000; // Upper Immediate: LUI, AUIPC
-parameter DIFT_OPCLASS_JUMP   = 4'b0001; // Jump: JAL, JALR
-parameter DIFT_OPCLASS_BRANCH = 4'b0010; // Branch: BEQ, BNE, BLT, BGE, BLTU, BGEU
-parameter DIFT_OPCLASS_LOAD   = 4'b0011; // Load: LB, LH, LW, LBU, LHU
-parameter DIFT_OPCLASS_STORE  = 4'b0100; // Store: SB, SH, SW
-parameter DIFT_OPCLASS_ALU    = 4'b0101; // ALU: ADDI, XORI, ORI, ANDI, ADD, SUB, XOR, OR, AND
-parameter DIFT_OPCLASS_SHIFT  = 4'b0110; // Shift: SLLI, SRLI, SRAI, SLL, SRL, SRA
-parameter DIFT_OPCLASS_COMP   = 4'b0111; // Compare: SLTI, SLTIU, SLT, SLTU
-parameter DIFT_OPCLASS_SYS    = 4'b1000; // System: FENCE, FENCE.I, ECALL, EBREAK
-parameter DIFT_OPCLASS_CSR    = 4'b1001; // CSR: CSRRW, CSRRS, CSRRC, CSRRWI, CSRRSI, CSRRCI
-parameter DIFT_OPCLASS_MUL    = 4'b1010; // RV32M instructions
-parameter DIFT_OPCLASS_FLOAT  = 4'b1011; // RV32F instructions
-parameter DIFT_OPCLASS_OTHER  = 4'b1100; // all other instructions (e.g. custom extensions like XPulp)
+parameter DIFT_OPCLASS_XUI    = 4'b0000; //  0: Upper Immediate: LUI, AUIPC
+parameter DIFT_OPCLASS_JUMP   = 4'b0001; //  1: Jump: JAL, JALR
+parameter DIFT_OPCLASS_BRANCH = 4'b0010; //  2: Branch: BEQ, BNE, BLT, BGE, BLTU, BGEU
+parameter DIFT_OPCLASS_LOAD   = 4'b0011; //  3: Load: LB, LH, LW, LBU, LHU
+parameter DIFT_OPCLASS_STORE  = 4'b0100; //  4: Store: SB, SH, SW
+parameter DIFT_OPCLASS_ALU    = 4'b0101; //  5: ALU: ADDI, XORI, ORI, ANDI, ADD, SUB, XOR, OR, AND
+parameter DIFT_OPCLASS_SHIFT  = 4'b0110; //  6: Shift: SLLI, SRLI, SRAI, SLL, SRL, SRA
+parameter DIFT_OPCLASS_COMP   = 4'b0111; //  7: Compare: SLTI, SLTIU, SLT, SLTU
+parameter DIFT_OPCLASS_SYS    = 4'b1000; //  8: System: FENCE, FENCE.I, ECALL, EBREAK
+parameter DIFT_OPCLASS_CSR    = 4'b1001; //  9: CSR: CSRRW, CSRRS, CSRRC, CSRRWI, CSRRSI, CSRRCI
+parameter DIFT_OPCLASS_MUL    = 4'b1010; // 10: RV32M instructions
+parameter DIFT_OPCLASS_FLOAT  = 4'b1011; // 11: RV32F instructions
+parameter DIFT_OPCLASS_OTHER  = 4'b1100; // 12: all other instructions (e.g. custom extensions like XPulp)
 
 // DIFT trap types
-parameter DIFT_TRAP_TYPE_NONE = 3'b000;
-parameter DIFT_TRAP_TYPE_EXEC = 3'b001;
-parameter DIFT_TRAP_TYPE_JALR = 3'b010;
-parameter DIFT_TRAP_TYPE_BRAN = 3'b011;
-parameter DIFT_TRAP_TYPE_STOR = 3'b100;
-parameter DIFT_TRAP_TYPE_LOAD = 3'b101;
+parameter DIFT_TRAP_TYPE_NONE = 3'b000; // 0
+parameter DIFT_TRAP_TYPE_EXEC = 3'b001; // 1
+parameter DIFT_TRAP_TYPE_JALR = 3'b010; // 2
+parameter DIFT_TRAP_TYPE_BRAN = 3'b011; // 3
+parameter DIFT_TRAP_TYPE_STOR = 3'b100; // 4
+parameter DIFT_TRAP_TYPE_LOAD = 3'b101; // 5
 
 
 /////////////////////////////////////////////////////////
@@ -454,6 +454,7 @@ parameter EXC_CAUSE_LOAD_FAULT   = 6'h05;
 parameter EXC_CAUSE_STORE_FAULT  = 6'h07;
 parameter EXC_CAUSE_ECALL_UMODE  = 6'h08;
 parameter EXC_CAUSE_ECALL_MMODE  = 6'h0B;
+parameter EXC_CAUSE_DIFT_VIOLAT  = 6'h04;
 
 // Trap mux selector
 parameter TRAP_MACHINE      = 1'b0;

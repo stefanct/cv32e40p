@@ -396,7 +396,7 @@ if(PULP_SECURE==1) begin
       12'h042: csr_rdata_int = {ucause_q[5], 26'h0, ucause_q[4:0]};
       // current priv level (not official)
       12'hC10: csr_rdata_int = {30'h0, priv_lvl_q};
-      
+
 `ifdef DIFT_ACTIVE
       // DIFT registers
       12'h020: csr_rdata_int = dift_tpr_q;
@@ -465,7 +465,7 @@ end else begin //PULP_SECURE == 0
       12'h014: csr_rdata_int = {21'b0, cluster_id_i[5:0], 1'b0, core_id_i[3:0]};
       // current priv level (not official)
       12'hC10: csr_rdata_int = {30'h0, priv_lvl_q};
-      
+
 `ifdef DIFT_ACTIVE
       // DIFT registers
       12'h020: csr_rdata_int = dift_tpr_q;
@@ -1072,36 +1072,8 @@ end //PULP_SECURE
       mscratch_q  <= '0;
 
 `ifdef DIFT_ACTIVE
-      dift_tpr_q  <= '{ //{13{1'b0}}, 19'b1001_1001_01_01_00_0_01_01 };
-          reserved: '0,
-          store: '{
-              en_value: 1'b1,
-              en_addr:  1'b0,
-              mode:     DIFT_PROPMODE2_OR
-            },
-          load:  '{
-              en_value: 1'b1, 
-              en_addr:  1'b0,
-              mode:     DIFT_PROPMODE2_OR
-            },
-          alu:            DIFT_PROPMODE2_OR,
-          shift:          DIFT_PROPMODE2_OR,
-          comp:           DIFT_PROPMODE2_ZERO,
-          csr:            DIFT_PROPMODE1_ZERO,
-          mul:            DIFT_PROPMODE2_OR,
-          float:          DIFT_PROPMODE2_OR
-        };
-      dift_tcr_q  <= '{ //{25{1'b0}}, 7'b1_1_000_1_1 };
-          reserved: '0,
-          exec:   DIFT_CHECKMODE1_ON,
-          jalr:   DIFT_CHECKMODE1_ON,
-          branch: '{
-              mode:               DIFT_CHECKMODE2_OFF,
-              single_mode_select: DIFT_CHECK_SINGLEMODESELECT_OP_A
-            },
-          store:  DIFT_CHECKMODE1_ON,
-          load:   DIFT_CHECKMODE1_ON
-        };
+      dift_tpr_q  <= '0;
+      dift_tcr_q  <= '0;
 `endif
     end
     else

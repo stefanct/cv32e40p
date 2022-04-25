@@ -189,6 +189,8 @@ module riscv_id_stage
     // additional signals needed for DIFT tag check
     output logic [ 1:0]   jump_in_dec_o,
     output dift_tag_t     jump_target_tag_o,
+    // DIFT trap input signal
+    input  logic          dift_trap_i,
 `endif
 
     // CSR ID/EX
@@ -1404,6 +1406,10 @@ module riscv_id_stage
 
     .exc_ack_o                      ( exc_ack                ),
     .exc_kill_o                     ( exc_kill               ),
+
+`ifdef DIFT_ACTIVE
+    .dift_trap_i                    ( dift_trap_i            ),
+`endif
 
     // Debug Signal
     .debug_mode_o                   ( debug_mode_o           ),

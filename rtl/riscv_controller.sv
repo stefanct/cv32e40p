@@ -27,6 +27,8 @@
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
+`include "riscv_dift_config.sv"
+
 import riscv_defines::*;
 
 module riscv_controller
@@ -116,6 +118,11 @@ module riscv_controller
   output logic        exc_ack_o,
   output logic        exc_kill_o,
 
+`ifdef DIFT_ACTIVE
+  // DIFT trap input signal
+  input  logic        dift_trap_i,
+`endif
+
   // Debug Signal
   output logic         debug_mode_o,
   output logic [2:0]   debug_cause_o,
@@ -197,6 +204,9 @@ module riscv_controller
   logic boot_done, boot_done_q;
   logic irq_enable_int;
   logic data_err_q;
+`ifdef DIFT_ACTIVE
+  logic dift_trap_q;
+`endif
 
   logic debug_mode_q, debug_mode_n;
   logic ebrk_force_debug_mode;
@@ -381,6 +391,22 @@ module riscv_controller
 
       DECODE:
       begin
+`ifdef DIFT_ACTIVE
+          if (dift_trap_i)
+          begin //dift
+            // DIFT check logic raised a trap
+            is_decoding_o     = 1'b0;
+            halt_if_o         = 1'b1;
+            halt_id_o         = 1'b1;
+            csr_save_id_o     = 1'b1; // TODO DIFT: which address (IF/ID/EX) to save may depend on the opclas ??!
+            csr_save_cause_o  = 1'b1;
+            //no jump in this stage as we have to wait one cycle to go to Machine Mode
+
+            csr_cause_o       = EXC_CAUSE_DIFT_VIOLAT;
+            ctrl_fsm_ns       = FLUSH_WB;
+          end   //dift
+          else
+`endif
 
           if (branch_taken_ex_i)
           begin //taken branch
@@ -754,6 +780,18 @@ module riscv_controller
 
         ctrl_fsm_ns = DECODE;
 
+`ifdef DIFT_ACTIVE
+        if(dift_trap_q) begin
+            //dift
+            pc_mux_o              = PC_EXCEPTION;
+            pc_set_o              = 1'b1;
+            trap_addr_mux_o       = TRAP_MACHINE;
+            exc_pc_mux_o          = EXC_PC_EXCEPTION;
+            exc_cause_o           = EXC_CAUSE_DIFT_VIOLAT;
+        end
+        else
+`endif
+
         if(data_err_q) begin
             //data_error
             pc_mux_o              = PC_EXCEPTION;
@@ -1087,6 +1125,9 @@ module riscv_controller
 
       instr_valid_irq_flush_q <= 1'b0;
 
+`ifdef DIFT_ACTIVE
+      dift_trap_q    <= 1'b0;
+`endif
     end
     else
     begin
@@ -1102,6 +1143,10 @@ module riscv_controller
       illegal_insn_q <= illegal_insn_n;
 
       instr_valid_irq_flush_q <= instr_valid_irq_flush_n;
+
+`ifdef DIFT_ACTIVE
+      dift_trap_q    <= dift_trap_i;
+`endif
     end
   end
 

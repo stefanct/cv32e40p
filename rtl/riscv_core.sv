@@ -141,7 +141,7 @@ module riscv_core
 `ifdef DIFT_ACTIVE
   logic  [3:0]       instr_rtag_id;     // Tag bits of sampled instruction
 `endif
-  
+
   logic              is_compressed_id;
   logic              is_fetch_failed_id;
   logic              illegal_c_insn_id; // Illegal compressed instruction sent to ID stage
@@ -385,7 +385,7 @@ module riscv_core
   logic                             instr_gnt_pmp;
   logic [31:0]                      instr_addr_pmp;
   logic                             instr_err_pmp;
-  
+
 
   //Simchecker signal
   logic is_interrupt;
@@ -735,6 +735,8 @@ module riscv_core
     // DIFT tag check additional needed signals
     .jump_in_dec_o                ( jump_in_dec             ),
     .jump_target_tag_o            ( jump_target_tag         ),
+    // DIFT trap singal
+    .dift_trap_i                  ( dift_trap               ),
 `endif
 
     // CSR ID/EX
@@ -914,7 +916,7 @@ module riscv_core
     .operand_c_tag_i            ( operand_c_tag_ex             ),
     .dift_tpcr_i                ( dift_tpcr                    ),
     .dift_tag_result_o          ( dift_tag_result              ), // needed as input for LSU (for store operations)
-    
+
     .dift_en_i                  ( dift_en_ex                   ),
     .dift_operator_i            ( dift_operator_ex             ),
     .dift_operand_a_i           ( dift_operand_a_ex            ),
@@ -1145,7 +1147,7 @@ module riscv_core
     // DIFT configuration signals
 `ifdef DIFT_ACTIVE
     .dift_tpcr_o             ( dift_tpcr          ),
-    .dift_tccr_o             (),    // not used yet
+    .dift_tccr_o             ( dift_tccr          ),
 `endif
 
     // performance counter related signals
@@ -1253,6 +1255,9 @@ module riscv_core
   dift_tag_check
   dift_tag_check_i
   (
+    .clk                ( clk                   ),
+    .rst_n              ( rst_ni                ),
+
     .instr_tag_i        ( instr_rtag_id         ),
     .jump_in_i          ( jump_in_dec           ),
     .jump_target_tag_i  ( jump_target_tag       ),
