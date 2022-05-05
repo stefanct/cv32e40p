@@ -454,7 +454,12 @@ parameter EXC_CAUSE_LOAD_FAULT   = 6'h05;
 parameter EXC_CAUSE_STORE_FAULT  = 6'h07;
 parameter EXC_CAUSE_ECALL_UMODE  = 6'h08;
 parameter EXC_CAUSE_ECALL_MMODE  = 6'h0B;
-parameter EXC_CAUSE_DIFT_VIOLAT  = 6'h04;
+parameter EXC_CAUSE_DIFT_VIOLAT  = 6'h04; // TODO remove
+parameter EXC_CAUSE_DIFT_EXEC    = 6'h11;
+parameter EXC_CAUSE_DIFT_JALR    = 6'h12;
+parameter EXC_CAUSE_DIFT_BRAN    = 6'h13;
+parameter EXC_CAUSE_DIFT_STOR    = 6'h14;
+parameter EXC_CAUSE_DIFT_LOAD    = 6'h15;
 
 // Trap mux selector
 parameter TRAP_MACHINE      = 1'b0;

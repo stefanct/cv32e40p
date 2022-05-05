@@ -15,7 +15,7 @@ module dift_tag_check
 
     // tag bits of the instruction currently provided by IF
     input  logic [3:0]    instr_tag_i,        // for execution check (all instructions)
-    // jump indicator (if any occursand also which type of jump/branch) decoded in ID
+    // jump indicator (if any occurs and also which type of jump/branch) decoded in ID
     input logic [1:0]     jump_in_i,          // for jump/branch instructions
     // tag bits of jump target (calculated in ID)
     input dift_tag_t      jump_target_tag_i,  // only for jump instructions (JALR)

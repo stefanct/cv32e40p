@@ -737,6 +737,7 @@ module riscv_core
     .jump_target_tag_o            ( jump_target_tag         ),
     // DIFT trap singal
     .dift_trap_i                  ( dift_trap               ),
+    .dift_trap_type_i             ( dift_trap_type          ),
 `endif
 
     // CSR ID/EX

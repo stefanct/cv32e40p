@@ -121,6 +121,7 @@ module riscv_controller
 `ifdef DIFT_ACTIVE
   // DIFT trap input signal
   input  logic        dift_trap_i,
+  input  dift_trap_t  dift_trap_type_i,
 `endif
 
   // Debug Signal
@@ -398,11 +399,26 @@ module riscv_controller
             is_decoding_o     = 1'b0;
             halt_if_o         = 1'b1;
             halt_id_o         = 1'b1;
-            csr_save_id_o     = 1'b1; // TODO DIFT: which address (IF/ID/EX) to save may depend on the opclas ??!
+            // save different PC depending on opclass that triggered the trap
+            unique case (dift_trap_type_i)
+              DIFT_TRAP_TYPE_EXEC:  csr_save_id_o = 1'b1;
+              DIFT_TRAP_TYPE_JALR:  csr_save_id_o = 1'b1;
+              DIFT_TRAP_TYPE_BRAN:  csr_save_id_o = 1'b1;
+              DIFT_TRAP_TYPE_STOR:  csr_save_ex_o = 1'b1;
+              DIFT_TRAP_TYPE_LOAD:  csr_save_ex_o = 1'b1;
+              default:              csr_save_id_o = 1'b1;
+            endcase
             csr_save_cause_o  = 1'b1;
             //no jump in this stage as we have to wait one cycle to go to Machine Mode
 
-            csr_cause_o       = EXC_CAUSE_DIFT_VIOLAT;
+            unique case (dift_trap_type_i)
+              DIFT_TRAP_TYPE_EXEC:  csr_cause_o = EXC_CAUSE_DIFT_EXEC;
+              DIFT_TRAP_TYPE_JALR:  csr_cause_o = EXC_CAUSE_DIFT_JALR;
+              DIFT_TRAP_TYPE_BRAN:  csr_cause_o = EXC_CAUSE_DIFT_BRAN;
+              DIFT_TRAP_TYPE_STOR:  csr_cause_o = EXC_CAUSE_DIFT_STOR;
+              DIFT_TRAP_TYPE_LOAD:  csr_cause_o = EXC_CAUSE_DIFT_LOAD;
+              default:              csr_cause_o = EXC_CAUSE_DIFT_VIOLAT;  // TODO remove
+            endcase
             ctrl_fsm_ns       = FLUSH_WB;
           end   //dift
           else

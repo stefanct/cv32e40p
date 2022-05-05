@@ -191,6 +191,7 @@ module riscv_id_stage
     output dift_tag_t     jump_target_tag_o,
     // DIFT trap input signal
     input  logic          dift_trap_i,
+    input  dift_trap_t    dift_trap_type_i,
 `endif
 
     // CSR ID/EX
@@ -1157,7 +1158,7 @@ module riscv_id_stage
      .CSN_T       (                     ), // PLEASE CONNECT ME; Synthesis will remove me if unconnected
      .WEN_T       (                     ), // PLEASE CONNECT ME; Synthesis will remove me if unconnected
      .A_T         (                     ), // PLEASE CONNECT ME; Synthesis will remove me if unconnected
-`ifdef DIFT_ACTIVE  
+`ifdef DIFT_ACTIVE
      .DTAG_T      (                     ),
      .QTAG_T      (                     ),
 `endif
@@ -1409,6 +1410,7 @@ module riscv_id_stage
 
 `ifdef DIFT_ACTIVE
     .dift_trap_i                    ( dift_trap_i            ),
+    .dift_trap_type_i               ( dift_trap_type_i       ),
 `endif
 
     // Debug Signal
@@ -1629,7 +1631,7 @@ module riscv_id_stage
       dift_operand_a_tag_ex_o     <= '0;
       dift_operand_b_tag_ex_o     <= '0;
       dift_operand_c_tag_ex_o     <= '0;
-      
+
       jump_in_dec_o               <= '0;
       jump_target_tag_o           <= '0;
 `endif
