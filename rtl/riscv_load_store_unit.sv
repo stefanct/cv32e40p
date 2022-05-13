@@ -108,7 +108,7 @@ module riscv_load_store_unit
   logic [3:0]   data_wtag;
   logic [3:0]   rtag_q;
   
-  dift_tag_t    address_tag_q;
+  dift_tag_t    op_a_tag_q, op_b_tag_q;
 `endif
 
   ///////////////////////////////// BE generation ////////////////////////////////
@@ -460,10 +460,10 @@ module riscv_load_store_unit
 
     // handle value and address propagation enable policies
     //   operand_a holds the base address (from register)
-    //   operand_b holds the address offset (immeadiate value) -> is always untainted -> no need to process
+    //   operand_b holds the address offset (immeadiate value or register (in PULP specific reg-reg load instructions))
     //   operand_c holds the write value for stores -> not needed for propagation of load instructions
     temp_tag_value = rtag_value & {DIFT_TAG_SIZE{ dift_proppol_load_i.en_value }};
-    temp_tag_addr  = {DIFT_TAG_SIZE{ (|address_tag_q) & dift_proppol_load_i.en_addr }};
+    temp_tag_addr  = {DIFT_TAG_SIZE{ ((|op_a_tag_q) | (|op_b_tag_q)) & dift_proppol_load_i.en_addr }};
 
     // handle propagation mode policy
     unique case(dift_proppol_load_i.mode)
@@ -649,7 +649,7 @@ module riscv_load_store_unit
   assign busy_o = (CS == WAIT_RVALID) || (CS == WAIT_RVALID_EX_STALL) || (CS == IDLE_EX_STALL) || (data_req_o == 1'b1);
 
 `ifdef DIFT_ACTIVE
-  // FF for address tag (operand_a_tag)
+  // FF for address tag (operand_a_tag, and opernad_b_tag)
   //  has to be stored in a FF, because the address (and the corresponding tag) is
   //  only available as input when the read request is issued to the memory interface
   //  however, the tag propagation logic is only executed when the result (read data)
@@ -658,11 +658,13 @@ module riscv_load_store_unit
   begin
     if(rst_n == 1'b0)
     begin
-      address_tag_q <= '0;
+      op_a_tag_q <= '0;
+      op_b_tag_q <= '0;
     end
     else if (((CS == IDLE) || (CS == WAIT_RVALID)) && data_req_ex_i)  // "load" address to FF only when a new request is issued
     begin
-      address_tag_q <= operand_a_tag_ex_i;
+      op_a_tag_q <= operand_a_tag_ex_i;
+      op_b_tag_q <= operand_b_tag_ex_i;
     end
   end
 

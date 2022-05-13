@@ -282,19 +282,22 @@ parameter DIFT_CHECK_SINGLEMODESELECT_OP_A  = 1'b0; // use operand a for single 
 parameter DIFT_CHECK_SINGLEMODESELECT_OP_B  = 1'b1; // use operand b for single operand check mode
 
 // DIFT operation classes (instruction classes)
-parameter DIFT_OPCLASS_XUI    = 4'b0000; //  0: Upper Immediate: LUI, AUIPC
-parameter DIFT_OPCLASS_JUMP   = 4'b0001; //  1: Jump: JAL, JALR
-parameter DIFT_OPCLASS_BRANCH = 4'b0010; //  2: Branch: BEQ, BNE, BLT, BGE, BLTU, BGEU
-parameter DIFT_OPCLASS_LOAD   = 4'b0011; //  3: Load: LB, LH, LW, LBU, LHU
-parameter DIFT_OPCLASS_STORE  = 4'b0100; //  4: Store: SB, SH, SW
-parameter DIFT_OPCLASS_ALU    = 4'b0101; //  5: ALU: ADDI, XORI, ORI, ANDI, ADD, SUB, XOR, OR, AND
-parameter DIFT_OPCLASS_SHIFT  = 4'b0110; //  6: Shift: SLLI, SRLI, SRAI, SLL, SRL, SRA
-parameter DIFT_OPCLASS_COMP   = 4'b0111; //  7: Compare: SLTI, SLTIU, SLT, SLTU
-parameter DIFT_OPCLASS_SYS    = 4'b1000; //  8: System: FENCE, FENCE.I, ECALL, EBREAK
-parameter DIFT_OPCLASS_CSR    = 4'b1001; //  9: CSR: CSRRW, CSRRS, CSRRC, CSRRWI, CSRRSI, CSRRCI
-parameter DIFT_OPCLASS_MUL    = 4'b1010; // 10: RV32M instructions
-parameter DIFT_OPCLASS_FLOAT  = 4'b1011; // 11: RV32F instructions
-parameter DIFT_OPCLASS_OTHER  = 4'b1100; // 12: all other instructions (e.g. custom extensions like XPulp)
+parameter DIFT_OPCLASS_XUI       = 4'b0000; //  0: Upper Immediate: LUI, AUIPC
+parameter DIFT_OPCLASS_JUMP      = 4'b0001; //  1: Jump: JAL, JALR
+parameter DIFT_OPCLASS_BRANCH    = 4'b0010; //  2: Branch: BEQ, BNE, BLT, BGE, BLTU, BGEU
+parameter DIFT_OPCLASS_LOAD      = 4'b0011; //  3: Load: LB, LH, LW, LBU, LHU
+parameter DIFT_OPCLASS_STORE     = 4'b0100; //  4: Store: SB, SH, SW
+parameter DIFT_OPCLASS_ALU       = 4'b0101; //  5: ALU: ADDI, XORI, ORI, ANDI, ADD, SUB, XOR, OR, AND
+parameter DIFT_OPCLASS_SHIFT     = 4'b0110; //  6: Shift: SLLI, SRLI, SRAI, SLL, SRL, SRA
+parameter DIFT_OPCLASS_COMP      = 4'b0111; //  7: Compare: SLTI, SLTIU, SLT, SLTU
+parameter DIFT_OPCLASS_SYS       = 4'b1000; //  8: System: FENCE, FENCE.I, ECALL, EBREAK
+parameter DIFT_OPCLASS_CSR       = 4'b1001; //  9: CSR: CSRRW, CSRRS, CSRRC, CSRRWI, CSRRSI, CSRRCI
+parameter DIFT_OPCLASS_MUL       = 4'b1010; // 10: RV32M instructions
+parameter DIFT_OPCLASS_FLOAT     = 4'b1011; // 11: RV32F instructions
+parameter DIFT_OPCLASS_OPEXT_A   = 4'b1100; // 12: PULP custom - operand a used only
+parameter DIFT_OPCLASS_OPEXT_AB  = 4'b1101; // 13: PULP custom - operands a and b used
+parameter DIFT_OPCLASS_OPEXT_ABC = 4'b1110; // 14: PULP custom - operands a, b and c used
+parameter DIFT_OPCLASS_OTHER     = 4'b1111; // 15: all other instructions (e.g. custom extensions like XPulp)
 
 // DIFT trap types
 parameter DIFT_TRAP_TYPE_NONE = 3'b000; // 0

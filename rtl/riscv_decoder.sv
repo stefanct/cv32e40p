@@ -215,37 +215,137 @@ module riscv_decoder
   begin
     case (instr_rdata_i[6:0])
       OPCODE_LUI,
-      OPCODE_AUIPC:   dift_opclass_o = DIFT_OPCLASS_XUI;
+      OPCODE_AUIPC:       dift_opclass_o = DIFT_OPCLASS_XUI;
       
       OPCODE_JALR,
-      OPCODE_JAL:     dift_opclass_o = DIFT_OPCLASS_JUMP;
+      OPCODE_JAL:         dift_opclass_o = DIFT_OPCLASS_JUMP;
       
-      OPCODE_BRANCH:  dift_opclass_o = DIFT_OPCLASS_BRANCH;
+      OPCODE_BRANCH:      dift_opclass_o = DIFT_OPCLASS_BRANCH;
       
-      OPCODE_LOAD:    dift_opclass_o = DIFT_OPCLASS_LOAD;
+      // operand a: addr base   | rega     - rs1
+      // operand b: addr offset | imm/regb - imm_i/rs2
+      // operand c: not used
+      OPCODE_LOAD,
+      OPCODE_LOAD_POST:   dift_opclass_o = DIFT_OPCLASS_LOAD;
       
-      OPCODE_STORE:   dift_opclass_o = DIFT_OPCLASS_STORE;
+      // operand a: addr base   | rega     - rs1
+      // operand b: addr offset | imm/regc - imm_s/rd(rs3)
+      // operand c: value       | regb
+      //    normally addr offset is an imm_s, but can also be regc/rd(rs3) for PULP specific reg-reg stores
+      OPCODE_STORE,
+      OPCODE_STORE_POST:  dift_opclass_o = DIFT_OPCLASS_STORE;
       
-      OPCODE_OP,
+      // for RV32I standard instructions: (DIFT_OPCLASS_ALU, DIFT_OPCLASS_COMP, DIFT_OPCLASS_SHIFT)
+        // operand a: value a | rega     - rs1
+        // operand b: value b | regb/imm - rs2/imm_i
+        // operand c: not used
+      // for PULP specific instructions:
+        // DIFT_OPCLASS_OPEXT_A:   only operand a used
+        // DIFT_OPCLASS_OPEXT_AB:  operands a and b used
+        // DIFT_OPCLASS_OPEXT_ABC: operands a, b and c used
       OPCODE_OPIMM: begin
-        if ((instr_rdata_i[6:0] == OPCODE_OP) && instr_rdata_i[31:25] == 7'b0000001)
+        case (instr_rdata_i[14:12])
+          3'b000, // ADDI
+          3'b100, // XORI
+          3'b110, // ORI
+          3'b111: // ANDI
+                    dift_opclass_o = DIFT_OPCLASS_ALU;
+          3'b010, // SLTI
+          3'b011: // SLTIU
+                    dift_opclass_o = DIFT_OPCLASS_COMP;
+          3'b001, // SLLI
+          3'b101: // SRLI / SRAI
+                    dift_opclass_o = DIFT_OPCLASS_SHIFT;
+          default:  dift_opclass_o = DIFT_OPCLASS_OTHER;
+        endcase
+      end
+        
+      OPCODE_OP: begin
+        // RV32M OP
+        if (instr_rdata_i[31:25] == 7'b0000001)
           dift_opclass_o = DIFT_OPCLASS_MUL;
-        else begin
+        // RV32I OP
+        else if (instr_rdata_i[31:25] == 7'b0000000)
+        begin
           case (instr_rdata_i[14:12])
-            3'b000, // ADD / SUB / ADDI
-            3'b100, // XOR / XORI
-            3'b110, // OR / ORI
-            3'b111: // AND / ANDI
-                        dift_opclass_o = DIFT_OPCLASS_ALU;
-            3'b010, // SLT / SLTI
-            3'b011: // SLTU / SLTIU
-                        dift_opclass_o = DIFT_OPCLASS_COMP;
-            3'b001, // SLL / SLLI
-            3'b101: // SRL / SRA / SRLI / SRAI
-                        dift_opclass_o = DIFT_OPCLASS_SHIFT;
-            default:    dift_opclass_o = DIFT_OPCLASS_OTHER;
+            3'b000, // ADD
+            3'b100, // XOR
+            3'b110, // OR
+            3'b111: // AND
+                      dift_opclass_o = DIFT_OPCLASS_ALU;
+            3'b010, // SLT
+            3'b011: // SLTU
+                      dift_opclass_o = DIFT_OPCLASS_COMP;
+            3'b001, // SLL
+            3'b101: // SRL
+                      dift_opclass_o = DIFT_OPCLASS_SHIFT;
+            default:  dift_opclass_o = DIFT_OPCLASS_OTHER;
           endcase
         end
+        // RV32I OP
+        else if (instr_rdata_i[31:25] == 7'b0100000)
+        begin
+          case (instr_rdata_i[14:12])
+            3'b000: // SUB
+                      dift_opclass_o = DIFT_OPCLASS_ALU;
+            3'b101: // SRA
+                      dift_opclass_o = DIFT_OPCLASS_SHIFT;
+            default:  dift_opclass_o = DIFT_OPCLASS_OTHER;
+          endcase
+        end
+        // PULP sepcific: bit manipulation: reg-imm
+        else if (instr_rdata_i[31:30] == 2'b11)
+        begin
+          case (instr_rdata_i[14:12])
+            3'b000, // p.extract
+            3'b001, // p.extractu
+            3'b010, // p.insert
+            3'b011, // p.bclr (TODO DIFT: uses 1 or 2?)
+            3'b100: // p.bset (TODO DIFT: uses 1 or 2?)
+                      dift_opclass_o = DIFT_OPCLASS_OPEXT_AB;
+            3'b101: // p.brev
+                      dift_opclass_o = DIFT_OPCLASS_OPEXT_ABC;
+            default:  dift_opclass_o = DIFT_OPCLASS_OTHER;
+          endcase
+        end
+        // PULP sepcific: bit manipulation: reg-reg
+        else if (instr_rdata_i[31:25] == 7'b1000000)
+        begin
+          case (instr_rdata_i[14:12])
+            3'b000, // p.extractr
+            3'b001, // p.extractur
+            3'b011, // p.bclrr
+            3'b100: // p.bsetr
+                      dift_opclass_o = DIFT_OPCLASS_OPEXT_AB;
+            3'b010: // p.insertr
+                      dift_opclass_o = DIFT_OPCLASS_OPEXT_ABC;
+            default:  dift_opclass_o = DIFT_OPCLASS_OTHER;
+          endcase
+        end
+        // PULP specific: bit manipulation: p.ror
+        else if ((instr_rdata_i[31:25] == 7'b0000100) && (instr_rdata_i[14:12] == 3'b101))
+          dift_opclass_o = DIFT_OPCLASS_OPEXT_AB;
+        // PULP specific: bit manipulation: p.ff1 p.fl1 p.clb p.cnt
+        // PULP specific: general ALU: p.exths p.exthz p.extbs p.extbz
+        else if ((instr_rdata_i[31:25] == 7'b0001000) && (instr_rdata_i[24:20] == 5'b00000))
+          dift_opclass_o = DIFT_OPCLASS_OPEXT_A;
+        // PULP specific: general ALU: p.abs p.slet/u p.min/u p.max/u p.clip/u/r
+        else if ((instr_rdata_i[31:25] == 7'b0000010) || (instr_rdata_i[31:25] == 7'b0001010))
+          dift_opclass_o = DIFT_OPCLASS_OPEXT_AB;
+        // not known / illegal instr
+        else
+          dift_opclass_o = DIFT_OPCLASS_OTHER;
+      end
+      
+      OPCODE_PULP_OP: begin
+        // PULP specific: general ALU: p.add/u/R/N p.sub/u/R/N
+        if (instr_rdata_i[30] == 1'b0)
+          dift_opclass_o = DIFT_OPCLASS_OPEXT_ABC;
+        // PULP specific: general ALU: p.add/u/R/Nr p.sub/u/R/Nr
+        else if (instr_rdata_i[30] == 1'b1)
+          dift_opclass_o = DIFT_OPCLASS_OPEXT_AB;
+        else
+          dift_opclass_o = DIFT_OPCLASS_OTHER;
       end
 
       OPCODE_FENCE:   dift_opclass_o = DIFT_OPCLASS_SYS;

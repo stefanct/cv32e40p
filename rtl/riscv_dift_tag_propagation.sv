@@ -78,10 +78,10 @@ module dift_tag_propagation
         dift_tag_t temp_tag_addr_store;
         // handle value and address propagation enable policies
         //   operand a holds the base address in store operations
-        //   operand b holds the immediate (address offset) in store operations -> can be ignored for propagation
+        //   operand b holds the address offset in store operations -> can also be a register value (in PULP custom instructions)
         //   operand c holds the value in store operations
         temp_tag_val_store  = operand_c_tag_i & {DIFT_TAG_SIZE{policy_store.en_value}};
-        temp_tag_addr_store = {DIFT_TAG_SIZE{ (|operand_a_tag_i) & policy_store.en_addr }};
+        temp_tag_addr_store = {DIFT_TAG_SIZE{ ((|operand_a_tag_i) | (|operand_b_tag_i)) & policy_store.en_addr }};
 
         // handle propagation mode policy
         unique case(policy_store.mode)
@@ -121,6 +121,39 @@ module dift_tag_propagation
           default:             result_o = '0;
         endcase
       end
+      
+      // PULP specific ALU: only operand a used
+      DIFT_OPCLASS_OPEXT_A: begin
+        unique case(policy_alu)
+          DIFT_PROPMODE2_OR:   result_o = {DIFT_TAG_SIZE{ (|operand_a_tag_i) }};
+          DIFT_PROPMODE2_AND:  result_o = {DIFT_TAG_SIZE{ (|operand_a_tag_i) }};
+          DIFT_PROPMODE2_ZERO: result_o = '0;
+          DIFT_PROPMODE2_ONE:  result_o = '1;
+          default:             result_o = '0;
+        endcase
+      end
+      
+      // PULP specific ALU: operands a and b used
+      DIFT_OPCLASS_OPEXT_AB: begin
+        unique case(policy_alu)
+          DIFT_PROPMODE2_OR:   result_o = {DIFT_TAG_SIZE{ (|operand_a_tag_i) | (|operand_b_tag_i) }};
+          DIFT_PROPMODE2_AND:  result_o = {DIFT_TAG_SIZE{ (|operand_a_tag_i) & (|operand_b_tag_i) }};
+          DIFT_PROPMODE2_ZERO: result_o = '0;
+          DIFT_PROPMODE2_ONE:  result_o = '1;
+          default:             result_o = '0;
+        endcase
+      end
+      
+      // PULP specific ALU: operands a, b and c used
+      DIFT_OPCLASS_OPEXT_ABC: begin
+        unique case(policy_alu)
+          DIFT_PROPMODE2_OR:   result_o = {DIFT_TAG_SIZE{ (|operand_a_tag_i) | (|operand_b_tag_i) | (|operand_c_tag_i) }};
+          DIFT_PROPMODE2_AND:  result_o = {DIFT_TAG_SIZE{ (|operand_a_tag_i) & (|operand_b_tag_i) & (|operand_c_tag_i) }};
+          DIFT_PROPMODE2_ZERO: result_o = '0;
+          DIFT_PROPMODE2_ONE:  result_o = '1;
+          default:             result_o = '0;
+        endcase
+      end
 
       DIFT_OPCLASS_CSR: begin
         if (policy_csr == DIFT_PROPMODE1_ONE)
@@ -129,7 +162,7 @@ module dift_tag_propagation
           result_o = '0;
       end
 
-      DIFT_OPCLASS_OTHER: result_o = '1; // TODO okay?
+      DIFT_OPCLASS_OTHER: result_o = '0; // TODO okay? -> NO (used by SDK/runtime)
       default:            result_o = '1; // TODO okay?
     endcase
   end
