@@ -118,6 +118,7 @@ module riscv_ex_stage
   // DIFT signals
 `ifdef DIFT_ACTIVE
   // DIFT Tag Propagation
+  input  logic          post_increment_instr_i,
   input  dift_opclass_t dift_opclass_i,
   input  dift_tag_t     operand_a_tag_i,
   input  dift_tag_t     operand_b_tag_i,
@@ -257,7 +258,14 @@ module riscv_ex_stage
       regfile_alu_we_fw_o      = regfile_alu_we_i & ~apu_en_i; // private fpu incomplete?
       regfile_alu_waddr_fw_o   = regfile_alu_waddr_i;
 `ifdef DIFT_ACTIVE
-      regfile_alu_wtag_fw_o    = tag_propagation_result;
+      // for post-increment load/stores: the ALU result (incremented load/store-address (operand a))
+      // is written back, but the tag_propagation_result holds the value for the actual store operation
+      // -> as instead of using the Tag Propagation result, the previous value has to be used!
+      if (post_increment_instr_i) begin
+        regfile_alu_wtag_fw_o = operand_a_tag_i;
+      end else begin
+        regfile_alu_wtag_fw_o = tag_propagation_result;
+      end
 `endif
       if (alu_en_i) begin
         regfile_alu_wdata_fw_o = alu_result;

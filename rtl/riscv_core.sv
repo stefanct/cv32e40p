@@ -239,6 +239,7 @@ module riscv_core
   // DIFT
 `ifdef DIFT_ACTIVE
   // DIFT tag propagation
+  logic           post_increment_instr_ex;
   dift_opclass_t  dift_opclass_ex;
   dift_tag_t      operand_a_tag_ex;
   dift_tag_t      operand_b_tag_ex;
@@ -723,6 +724,8 @@ module riscv_core
     .operand_a_tag_ex_o           ( operand_a_tag_ex        ),
     .operand_b_tag_ex_o           ( operand_b_tag_ex        ),
     .operand_c_tag_ex_o           ( operand_c_tag_ex        ),
+    // DIFT tag propagation additionl needed signals
+    .post_increment_instr_o       ( post_increment_instr_ex ),
     // DIFT tag manipulation
     .dift_en_ex_o                 ( dift_en_ex              ),
     .dift_operator_ex_o           ( dift_operator_ex        ),
@@ -911,6 +914,7 @@ module riscv_core
 
     // DIFT
 `ifdef DIFT_ACTIVE
+    .post_increment_instr_i     ( post_increment_instr_ex      ),
     .dift_opclass_i             ( dift_opclass_ex              ),
     .operand_a_tag_i            ( operand_a_tag_ex             ),
     .operand_b_tag_i            ( operand_b_tag_ex             ),

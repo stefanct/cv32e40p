@@ -177,6 +177,8 @@ module riscv_id_stage
     output dift_tag_t     operand_a_tag_ex_o,
     output dift_tag_t     operand_b_tag_ex_o,
     output dift_tag_t     operand_c_tag_ex_o,
+    // additional signals needed for DIFT tag propagation
+    output logic          post_increment_instr_o,
     // DIFT tag manipulation
     output logic          dift_en_ex_o,
     output logic [ 2:0]   dift_operator_ex_o,
@@ -416,6 +418,7 @@ module riscv_id_stage
 
   // DIFT signals
 `ifdef DIFT_ACTIVE
+  logic           post_increment_instr;
   dift_opclass_t  dift_opclass;
   logic           dift_en;
   logic [2:0]     dift_operator;
@@ -1271,6 +1274,7 @@ module riscv_id_stage
 
     // DIFT unit
 `ifdef DIFT_ACTIVE
+    .post_increment_instr_o          ( post_increment_instr      ),
     .dift_opclass_o                  ( dift_opclass              ),
     .dift_en_o                       ( dift_en                   ),
     .dift_operator_o                 ( dift_operator             ),
@@ -1618,6 +1622,8 @@ module riscv_id_stage
       apu_waddr_ex_o              <= '0;
 
 `ifdef DIFT_ACTIVE
+      post_increment_instr        <= '0;
+      
       dift_opclass_ex_o           <= '0;
       operand_a_tag_ex_o          <= '0;
       operand_b_tag_ex_o          <= '0;
@@ -1743,6 +1749,7 @@ module riscv_id_stage
         // DIFT pipeline
 `ifdef DIFT_ACTIVE
         // tag propagation
+        post_increment_instr_o      <= post_increment_instr;
         dift_opclass_ex_o           <= dift_opclass;
         operand_a_tag_ex_o          <= alu_operand_a_tag;
         operand_b_tag_ex_o          <= alu_operand_b_tag;

@@ -124,6 +124,7 @@ module riscv_decoder
   output logic [2:0]          fp_rnd_mode_o,
 
 `ifdef DIFT_ACTIVE
+  output logic                post_increment_instr_o, // info is needed for DIFT (tag propagation of address being incremented)
   // DIFT
   output dift_opclass_t       dift_opclass_o,
   output logic                dift_en_o,
@@ -428,6 +429,7 @@ module riscv_decoder
     prepost_useincr_o           = 1'b1;
 
 `ifdef DIFT_ACTIVE
+    post_increment_instr_o      = 1'b0;
     dift_en                     = 1'b0;
     dift_operator_o             = '0;
 `endif
@@ -578,6 +580,9 @@ module riscv_decoder
           prepost_useincr_o       = 1'b0;
           regfile_alu_waddr_sel_o = 1'b0;
           regfile_alu_we          = 1'b1;
+`ifdef DIFT_ACTIVE
+          post_increment_instr_o  = 1'b1;
+`endif
         end
 
         if (instr_rdata_i[14] == 1'b0) begin
@@ -621,6 +626,9 @@ module riscv_decoder
           prepost_useincr_o       = 1'b0;
           regfile_alu_waddr_sel_o = 1'b0;
           regfile_alu_we          = 1'b1;
+`ifdef DIFT_ACTIVE
+          post_increment_instr_o  = 1'b1;
+`endif
         end
 
         // sign/zero extension

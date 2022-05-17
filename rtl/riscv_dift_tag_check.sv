@@ -101,7 +101,7 @@ module dift_tag_check
     // is the policy activated for this check?
     if ((opclass_i == DIFT_OPCLASS_STORE) && (tccr_i.store == DIFT_CHECKMODE1_ON)) begin
       // apply check logic
-      result_store = |operand_a_tag_i;  // operand a holdds the read address (source address)
+      result_store = |operand_a_tag_i;  // operand a holds the read address (source address)
     end
   end
 
