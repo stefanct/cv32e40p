@@ -125,6 +125,14 @@ module riscv_ex_stage
   input  dift_tag_t     operand_c_tag_i,
   input  dift_tpcr_t    dift_tpcr_i,
   output dift_tag_t     dift_tag_result_o,
+  // DIFT Tag Check
+  input  dift_tccr_t    dift_tccr_i,
+  input  dift_tag_t     instr_rtag_i,
+  input  logic          is_decoding_i,
+  input  logic [ 1:0]   jump_in_i,
+  input  dift_tag_t     jump_target_tag_i,
+  output logic          dift_trap_o,
+  output dift_trap_t    dift_trap_type_o,
   // DIFT Tag Manipulation
   input  logic          dift_en_i,
   input  logic [ 2:0]   dift_operator_i,
@@ -322,6 +330,7 @@ module riscv_ex_stage
   //       DIFT UNIT        //
   //    Tag Propagation     //
   //    Tag Manipulation    //
+  //       Tag Check        //
   ////////////////////////////
 `ifdef DIFT_ACTIVE
 
@@ -355,6 +364,32 @@ module riscv_ex_stage
 
     .result_o             ( dift_result          ),
     .result_tag_o         ( dift_result_tag      )
+  );
+  
+  dift_tag_check
+  dift_tag_check_i
+  (
+    .clk                  ( clk                  ),
+    .rst_n                ( rst_n                ),
+
+    // configuration
+    .tccr_i               ( dift_tccr_i          ),
+    // info about executing instruction (which check logic has to be applied)
+    .opclass_i            ( dift_opclass_i       ),
+    .is_decoding_i        ( is_decoding_i        ),
+    //.branch_decision_i    ( branch_decision_o    ),
+    .jump_in_i            ( jump_in_i            ),
+    // tag data for EXEC check
+    .instr_rtag_i         ( instr_rtag_i         ),
+    // tag data for JALR check
+    .jump_target_tag_i    ( jump_target_tag_i    ),
+    // tag data for BRANCH, LOAD, STORE checks
+    .operand_a_tag_i      ( operand_a_tag_i      ),
+    .operand_b_tag_i      ( operand_b_tag_i      ),
+    .operand_c_tag_i      ( operand_c_tag_i      ),
+    // output: raising trap
+    .trap_o               ( dift_trap_o          ),
+    .trap_type_o          ( dift_trap_type_o     )
   );
 
 `endif

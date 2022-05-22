@@ -67,7 +67,7 @@ module riscv_if_stage
     output logic              instr_valid_id_o,      // instruction in IF/ID pipeline is valid
     output logic       [31:0] instr_rdata_id_o,      // read instruction is sampled and sent to ID stage for decoding
 `ifdef DIFT_ACTIVE
-    output logic        [3:0] instr_rtag_id_o,       // DIFT tag bits of read instruction
+    output dift_tag_t         instr_rtag_id_o,       // DIFT tag bits of read instruction
 `endif
     output logic              is_compressed_id_o,    // compressed decoder thinks this is a compressed instruction
     output logic              illegal_c_insn_id_o,   // compressed decoder thinks this is an invalid instruction
@@ -123,6 +123,7 @@ module riscv_if_stage
   logic              is_hwlp_id_q, fetch_is_hwlp;
 `ifdef DIFT_ACTIVE
   logic        [3:0] fetch_rtag;
+  dift_tag_t         instr_rtag;
 `endif
 
   logic       [31:0] exc_pc;
@@ -378,6 +379,17 @@ module riscv_if_stage
     end
   end
 
+`ifdef DIFT_ACTIVE
+  always_comb
+  begin
+    if (DIFT_TAG_SIZE == 1)
+      instr_rtag = |fetch_rtag;
+    else  // DIFT_TAG_SIZE == 4
+      instr_rtag = fetch_rtag;
+  end
+`endif
+
+
   // IF-ID pipeline registers, frozen when the ID stage is stalled
   always_ff @(posedge clk, negedge rst_n)
   begin : IF_ID_PIPE_REGISTERS
@@ -404,7 +416,7 @@ module riscv_if_stage
         instr_valid_id_o    <= 1'b1;
         instr_rdata_id_o    <= instr_decompressed;
 `ifdef DIFT_ACTIVE
-        instr_rtag_id_o     <= fetch_rtag;
+        instr_rtag_id_o     <= instr_rtag;
 `endif
         illegal_c_insn_id_o <= illegal_c_insn;
         is_compressed_id_o  <= instr_compressed_int;

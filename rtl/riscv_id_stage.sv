@@ -76,6 +76,9 @@ module riscv_id_stage
     input  logic              is_hwlp_i,
     input  logic              instr_valid_i,
     input  logic       [31:0] instr_rdata_i,      // comes from pipeline of IF stage
+`ifdef DIFT_ACTIVE
+    input  dift_tag_t         instr_rtag_i,
+`endif
     output logic              instr_req_o,
 
 
@@ -189,7 +192,8 @@ module riscv_id_stage
     output dift_tag_t     dift_operand_b_tag_ex_o,
     output dift_tag_t     dift_operand_c_tag_ex_o,
     // additional signals needed for DIFT tag check
-    output logic [ 1:0]   jump_in_dec_o,
+    output dift_tag_t     instr_rtag_ex_o,
+    output logic [ 1:0]   jump_in_ex_o,
     output dift_tag_t     jump_target_tag_o,
     // DIFT trap input signal
     input  logic          dift_trap_i,
@@ -1622,7 +1626,7 @@ module riscv_id_stage
       apu_waddr_ex_o              <= '0;
 
 `ifdef DIFT_ACTIVE
-      post_increment_instr        <= '0;
+      post_increment_instr_o      <= '0;
       
       dift_opclass_ex_o           <= '0;
       operand_a_tag_ex_o          <= '0;
@@ -1637,11 +1641,11 @@ module riscv_id_stage
       dift_operand_a_tag_ex_o     <= '0;
       dift_operand_b_tag_ex_o     <= '0;
       dift_operand_c_tag_ex_o     <= '0;
-
-      jump_in_dec_o               <= '0;
+      
+      instr_rtag_ex_o             <= '0;
+      jump_in_ex_o                <= '0;
       jump_target_tag_o           <= '0;
 `endif
-
 
       regfile_waddr_ex_o          <= 6'b0;
       regfile_we_ex_o             <= 1'b0;
@@ -1678,16 +1682,25 @@ module riscv_id_stage
         if (prepost_useincr_ex_o == 1'b1)
         begin
           alu_operand_a_ex_o        <= alu_operand_a;
+`ifdef DIFT_ACTIVE
+          operand_a_tag_ex_o        <= alu_operand_a_tag;
+`endif
         end
 
         alu_operand_b_ex_o          <= alu_operand_b;
         regfile_alu_we_ex_o         <= regfile_alu_we_id;
         prepost_useincr_ex_o        <= prepost_useincr;
+`ifdef DIFT_ACTIVE
+        operand_b_tag_ex_o          <= alu_operand_b_tag;
+`endif
 
         data_misaligned_ex_o        <= 1'b1;
       end
     end else if (mult_multicycle_i) begin
       mult_operand_c_ex_o     <= alu_operand_c;
+`ifdef DIFT_ACTIVE
+      operand_c_tag_ex_o        <= alu_operand_c_tag;
+`endif
     end
     else begin
       // normal pipeline unstall case
@@ -1766,7 +1779,8 @@ module riscv_id_stage
           dift_operand_c_tag_ex_o   <= alu_operand_c_tag;
         end;
         // tag check signals
-        jump_in_dec_o               <= jump_in_dec;
+        instr_rtag_ex_o             <= instr_rtag_i;
+        jump_in_ex_o                <= jump_in_id;
         jump_target_tag_o           <= jump_target_tag;
 `endif
 

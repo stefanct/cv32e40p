@@ -139,7 +139,7 @@ module riscv_core
   logic              instr_valid_id;
   logic [31:0]       instr_rdata_id;    // Instruction sampled inside IF stage
 `ifdef DIFT_ACTIVE
-  logic  [3:0]       instr_rtag_id;     // Tag bits of sampled instruction
+  dift_tag_t         instr_rtag_id;     // Tag bits of sampled instruction
 `endif
 
   logic              is_compressed_id;
@@ -256,9 +256,10 @@ module riscv_core
   dift_tag_t      dift_operand_b_tag_ex;
   dift_tag_t      dift_operand_c_tag_ex;
   // DIFT tag check additionally needed signals
-  logic [ 1:0]    jump_in_dec;
-  dift_tag_t      jump_target_tag;
   dift_tccr_t     dift_tccr;
+  dift_tag_t      instr_rtag_ex;
+  logic [ 1:0]    jump_in_ex;
+  dift_tag_t      jump_target_tag;
   logic           dift_trap;
   dift_trap_t     dift_trap_type;
 `endif
@@ -625,6 +626,9 @@ module riscv_core
     .is_hwlp_i                    ( is_hwlp_id           ),
     .instr_valid_i                ( instr_valid_id       ),
     .instr_rdata_i                ( instr_rdata_id       ),
+`ifdef DIFT_ACTIVE
+    .instr_rtag_i                 ( instr_rtag_id        ),
+`endif
     .instr_req_o                  ( instr_req_int        ),
 
     // Jumps and branches
@@ -736,7 +740,8 @@ module riscv_core
     .dift_operand_b_tag_ex_o      ( dift_operand_b_tag_ex   ),
     .dift_operand_c_tag_ex_o      ( dift_operand_c_tag_ex   ),
     // DIFT tag check additional needed signals
-    .jump_in_dec_o                ( jump_in_dec             ),
+    .instr_rtag_ex_o              ( instr_rtag_ex           ),
+    .jump_in_ex_o                 ( jump_in_ex              ),
     .jump_target_tag_o            ( jump_target_tag         ),
     // DIFT trap singal
     .dift_trap_i                  ( dift_trap               ),
@@ -914,6 +919,7 @@ module riscv_core
 
     // DIFT
 `ifdef DIFT_ACTIVE
+    // Tag Propagation
     .post_increment_instr_i     ( post_increment_instr_ex      ),
     .dift_opclass_i             ( dift_opclass_ex              ),
     .operand_a_tag_i            ( operand_a_tag_ex             ),
@@ -921,7 +927,15 @@ module riscv_core
     .operand_c_tag_i            ( operand_c_tag_ex             ),
     .dift_tpcr_i                ( dift_tpcr                    ),
     .dift_tag_result_o          ( dift_tag_result              ), // needed as input for LSU (for store operations)
-
+    // Tag Check
+    .dift_tccr_i                ( dift_tccr                    ),
+    .instr_rtag_i               ( instr_rtag_ex                ),
+    .jump_in_i                  ( jump_in_ex                   ),
+    .jump_target_tag_i          ( jump_target_tag              ),
+    .is_decoding_i              ( is_decoding                  ),
+    .dift_trap_o                ( dift_trap                    ),
+    .dift_trap_type_o           ( dift_trap_type               ),
+    // Tag Manipulation
     .dift_en_i                  ( dift_en_ex                   ),
     .dift_operator_i            ( dift_operator_ex             ),
     .dift_operand_a_i           ( dift_operand_a_ex            ),
@@ -1249,32 +1263,6 @@ module riscv_core
   end
   endgenerate
 
-
-
-////////////////////////////
-//       DIFT UNIT        //
-//       Tag Check        //
-////////////////////////////
-`ifdef DIFT_ACTIVE
-
-  dift_tag_check
-  dift_tag_check_i
-  (
-    .clk                ( clk                   ),
-    .rst_n              ( rst_ni                ),
-
-    .instr_tag_i        ( instr_rtag_id         ),
-    .jump_in_i          ( jump_in_dec           ),
-    .jump_target_tag_i  ( jump_target_tag       ),
-    .operand_a_tag_i    ( operand_a_tag_ex      ),
-    .operand_b_tag_i    ( operand_b_tag_ex      ),
-    .opclass_i          ( dift_opclass_ex       ),
-    .tccr_i             ( dift_tccr             ),
-
-    .trap_o             ( dift_trap             ),
-    .trap_type_o        ( dift_trap_type        )
-  );
-`endif
 
 
 `ifndef VERILATOR

@@ -210,7 +210,7 @@ module riscv_register_file
       always_ff @(posedge clk, negedge rst_n)
       begin : register_write_tag_behavioral
         if (rst_n==1'b0) begin
-          mem_tag[i] <= 1'b0;
+          mem_tag[i] <= '0;
         end else begin
           if(we_b_dec[i] == 1'b1)
             mem_tag[i] <= wtag_b_i;
