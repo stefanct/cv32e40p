@@ -402,10 +402,10 @@ module riscv_controller
             // save different PC depending on opclass that triggered the trap
             unique case (dift_trap_type_i)
               DIFT_TRAP_TYPE_EXEC:  csr_save_id_o = 1'b1; // TODO dift: are they all correct???
-              DIFT_TRAP_TYPE_JALR:  csr_save_id_o = 1'b1;
-              DIFT_TRAP_TYPE_BRAN:  csr_save_ex_o = 1'b1;
               DIFT_TRAP_TYPE_STOR:  csr_save_ex_o = 1'b1;
               DIFT_TRAP_TYPE_LOAD:  csr_save_ex_o = 1'b1;
+              DIFT_TRAP_TYPE_JALR:  csr_save_id_o = 1'b1;
+              DIFT_TRAP_TYPE_BRAN:  csr_save_ex_o = 1'b1;
               default:              csr_save_id_o = 1'b1;
             endcase
             csr_save_cause_o  = 1'b1;
@@ -413,10 +413,10 @@ module riscv_controller
 
             unique case (dift_trap_type_i)
               DIFT_TRAP_TYPE_EXEC:  csr_cause_o = EXC_CAUSE_DIFT_EXEC;
-              DIFT_TRAP_TYPE_JALR:  csr_cause_o = EXC_CAUSE_DIFT_JALR;
-              DIFT_TRAP_TYPE_BRAN:  csr_cause_o = EXC_CAUSE_DIFT_BRAN;
               DIFT_TRAP_TYPE_STOR:  csr_cause_o = EXC_CAUSE_DIFT_STOR;
               DIFT_TRAP_TYPE_LOAD:  csr_cause_o = EXC_CAUSE_DIFT_LOAD;
+              DIFT_TRAP_TYPE_JALR:  csr_cause_o = EXC_CAUSE_DIFT_JALR;
+              DIFT_TRAP_TYPE_BRAN:  csr_cause_o = EXC_CAUSE_DIFT_BRAN;
               default:              csr_cause_o = EXC_CAUSE_DIFT_VIOLAT;  // TODO remove
             endcase
             ctrl_fsm_ns       = FLUSH_WB;

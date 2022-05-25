@@ -240,10 +240,14 @@ module riscv_core
 `ifdef DIFT_ACTIVE
   // DIFT tag propagation
   logic           post_increment_instr_ex;
-  dift_opclass_t  dift_opclass_ex;
+  dift_prop_opclass_t  dift_prop_opclass_ex;
+  dift_check_opclass_t dift_check_opclass_ex;
   dift_tag_t      operand_a_tag_ex;
   dift_tag_t      operand_b_tag_ex;
   dift_tag_t      operand_c_tag_ex;
+  logic           rega_used_ex;
+  logic           regb_used_ex;
+  logic           regc_used_ex;
   dift_tpcr_t     dift_tpcr;
   dift_tag_t      dift_tag_result;
   // DIFT tag manipulation
@@ -258,7 +262,6 @@ module riscv_core
   // DIFT tag check additionally needed signals
   dift_tccr_t     dift_tccr;
   dift_tag_t      instr_rtag_ex;
-  logic [ 1:0]    jump_in_ex;
   dift_tag_t      jump_target_tag;
   logic           dift_trap;
   dift_trap_t     dift_trap_type;
@@ -724,10 +727,14 @@ module riscv_core
     // DIFT
 `ifdef DIFT_ACTIVE
     // DIFT tag propagation
-    .dift_opclass_ex_o            ( dift_opclass_ex         ),
+    .dift_prop_opclass_ex_o       ( dift_prop_opclass_ex    ),
+    .dift_check_opclass_ex_o      ( dift_check_opclass_ex   ),
     .operand_a_tag_ex_o           ( operand_a_tag_ex        ),
     .operand_b_tag_ex_o           ( operand_b_tag_ex        ),
     .operand_c_tag_ex_o           ( operand_c_tag_ex        ),
+    .rega_used_ex_o               ( rega_used_ex            ),
+    .regb_used_ex_o               ( regb_used_ex            ),
+    .regc_used_ex_o               ( regc_used_ex            ),
     // DIFT tag propagation additionl needed signals
     .post_increment_instr_o       ( post_increment_instr_ex ),
     // DIFT tag manipulation
@@ -741,7 +748,6 @@ module riscv_core
     .dift_operand_c_tag_ex_o      ( dift_operand_c_tag_ex   ),
     // DIFT tag check additional needed signals
     .instr_rtag_ex_o              ( instr_rtag_ex           ),
-    .jump_in_ex_o                 ( jump_in_ex              ),
     .jump_target_tag_o            ( jump_target_tag         ),
     // DIFT trap singal
     .dift_trap_i                  ( dift_trap               ),
@@ -921,16 +927,19 @@ module riscv_core
 `ifdef DIFT_ACTIVE
     // Tag Propagation
     .post_increment_instr_i     ( post_increment_instr_ex      ),
-    .dift_opclass_i             ( dift_opclass_ex              ),
+    .dift_prop_opclass_i        ( dift_prop_opclass_ex         ),
+    .dift_check_opclass_i       ( dift_check_opclass_ex        ),
     .operand_a_tag_i            ( operand_a_tag_ex             ),
     .operand_b_tag_i            ( operand_b_tag_ex             ),
     .operand_c_tag_i            ( operand_c_tag_ex             ),
+    .rega_used_i                ( rega_used_ex                 ),
+    .regb_used_i                ( regb_used_ex                 ),
+    .regc_used_i                ( regc_used_ex                 ),
     .dift_tpcr_i                ( dift_tpcr                    ),
     .dift_tag_result_o          ( dift_tag_result              ), // needed as input for LSU (for store operations)
     // Tag Check
     .dift_tccr_i                ( dift_tccr                    ),
     .instr_rtag_i               ( instr_rtag_ex                ),
-    .jump_in_i                  ( jump_in_ex                   ),
     .jump_target_tag_i          ( jump_target_tag              ),
     .is_decoding_i              ( is_decoding                  ),
     .dift_trap_o                ( dift_trap                    ),
@@ -1041,7 +1050,7 @@ module riscv_core
     .data_type_ex_i        ( data_type_ex       ),
     .data_wdata_ex_i       ( alu_operand_c_ex   ),
 `ifdef DIFT_ACTIVE
-    .data_wtag_ex_i        ( dift_tag_result    ),
+    .data_wtag_ex_i        ( operand_c_tag_ex   ),
 `endif
     .data_reg_offset_ex_i  ( data_reg_offset_ex ),
     .data_sign_ext_ex_i    ( data_sign_ext_ex   ),  // sign extension
@@ -1057,6 +1066,7 @@ module riscv_core
     .operand_a_tag_ex_i    ( operand_a_tag_ex   ),
     .operand_b_tag_ex_i    ( operand_b_tag_ex   ),
     .dift_proppol_load_i   ( dift_tpcr.load     ),
+    .dift_proppol_stor_i   ( dift_tpcr.stor     ),
 `endif
     .addr_useincr_ex_i     ( useincr_addr_ex    ),
 

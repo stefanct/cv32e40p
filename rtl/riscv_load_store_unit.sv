@@ -67,9 +67,10 @@ module riscv_load_store_unit
     input  logic [31:0]  operand_a_ex_i,       // operand a from RF for address     -> from ex stage
     input  logic [31:0]  operand_b_ex_i,       // operand b from RF for address     -> from ex stage
 `ifdef DIFT_ACTIVE
-    input  dift_tag_t    operand_a_tag_ex_i,   // tag bits of operand a (address), needed for LOADs only
-    input  dift_tag_t    operand_b_tag_ex_i,   // tag bits of operand b (address), needed for LOADs only
+    input  dift_tag_t    operand_a_tag_ex_i,   // tag bits of operand a (address)
+    input  dift_tag_t    operand_b_tag_ex_i,   // tag bits of operand b (address)
     input  dift_proppol_mem_t dift_proppol_load_i,  // configured propagation policy for load instructions
+    input  dift_proppol_mem_t dift_proppol_stor_i,  // configured propagation policy for store instructions
 `endif
     input  logic         addr_useincr_ex_i,    // use a + b or just a for address   -> from ex stage
 
@@ -181,14 +182,58 @@ module riscv_load_store_unit
   end
 
 `ifdef DIFT_ACTIVE
-  logic [3:0] temp_data_wtag;
+  // STORE Tag Propagation
+  dift_tag_t dift_store_tag_result;
+  
+  always_comb
+  begin
+    dift_tag_t dift_store_addr_tag;
+    dift_tag_t dift_store_val_tag;
+    
+    // operand a holds the base address (reg), operand b holds the offset (either immediate, or in Xpulp also reg is possible)
+    dift_store_addr_tag = {DIFT_TAG_SIZE{ (|operand_a_tag_ex_i) | (|operand_b_tag_ex_i) }};
+    // operand c is the value (and passed through the signal data_wtag_ex_i)
+    dift_store_val_tag  = data_wtag_ex_i;
+    
+    // tag propagation is enabled for both: value and address
+    if (dift_proppol_stor_i.en_val && dift_proppol_stor_i.en_addr)
+    begin
+      if (dift_proppol_stor_i.mode == DIFT_PROP_MODE_OR)
+      begin
+        dift_store_tag_result = {DIFT_TAG_SIZE{ (|dift_store_addr_tag) | (|dift_store_val_tag) }};  // OR combination
+      end
+      else  // DIFT_PROP_MODE_AND
+      begin
+        dift_store_tag_result = {DIFT_TAG_SIZE{ (|dift_store_addr_tag) & (|dift_store_val_tag) }};  // AND combination
+      end
+    end
+    // tag propagation is enabled only for value
+    else if (dift_proppol_stor_i.en_val)
+    begin
+      dift_store_tag_result = dift_store_val_tag;
+    end
+    // tag propagation is enabled only for address
+    else if (dift_proppol_stor_i.en_addr)
+    begin
+      dift_store_tag_result = dift_store_addr_tag;
+    end
+    // no tag propagation enabled (neither value nor address)
+    else
+    begin
+      dift_store_tag_result = '0;
+    end
+  end
 
+  
+  // handle misaligned accesses
+  logic [3:0] temp_data_wtag;
+  
   always_comb
   begin
     if (DIFT_TAG_SIZE == 1)
-      temp_data_wtag = {4{data_wtag_ex_i}};
+      temp_data_wtag = {4{dift_store_tag_result}};
     else  // DIFT_TAG_SIZE == 4
-      temp_data_wtag = data_wtag_ex_i;
+      temp_data_wtag = dift_store_tag_result;
 
     case (wdata_offset)
       2'b00: data_wtag = temp_data_wtag;
@@ -439,62 +484,85 @@ module riscv_load_store_unit
   // output to register file
   assign data_rdata_ex_o = (data_rvalid_i == 1'b1) ? data_rdata_ext : rdata_q;
 `ifdef DIFT_ACTIVE
-  // DIFT: Tag Propagation for load instructions
-  // (LSU specific part, which cannot be handled directly inside the DIFT Tag Propagation module in EX stage)
-  dift_tag_t    rtag_value;
-  dift_tag_t    temp_tag_value;
-  dift_tag_t    temp_tag_addr;
-  dift_tag_t    temp_tag_result;
-  dift_tag_t    temp_tag_result_type;
-
+  // LOAD Tag Propagation
+  dift_tag_t dift_load_addr_tag;
+  dift_tag_t dift_load_val_tag;
+  dift_tag_t dift_load_tag_result;
+  dift_tag_t dift_load_tag_result_type;
+  
   always_comb
   begin
-    if (DIFT_TAG_SIZE == 1) begin
-      // OR reduction of the 4 tag bits to a single tag bit
-      rtag_value = |data_rtag_ext;
-    end
-    else begin // DIFT_TAG_SIZE == 4
-      // no reduction needed, as core also uses 4 tag bits
-      rtag_value = data_rtag_ext;
-    end
-
-    // handle value and address propagation enable policies
+    // calculate value and address tag bits
     //   operand_a holds the base address (from register)
     //   operand_b holds the address offset (immeadiate value or register (in PULP specific reg-reg load instructions))
     //   operand_c holds the write value for stores -> not needed for propagation of load instructions
-    temp_tag_value = rtag_value & {DIFT_TAG_SIZE{ dift_proppol_load_i.en_value }};
-    temp_tag_addr  = {DIFT_TAG_SIZE{ ((|op_a_tag_q) | (|op_b_tag_q)) & dift_proppol_load_i.en_addr }};
-
-    // handle propagation mode policy
-    unique case(dift_proppol_load_i.mode)
-      DIFT_PROPMODE2_OR:   temp_tag_result = temp_tag_value | temp_tag_addr;
-      DIFT_PROPMODE2_AND:  temp_tag_result = temp_tag_value & temp_tag_addr;
-      DIFT_PROPMODE2_ZERO: temp_tag_result = '0;
-      DIFT_PROPMODE2_ONE:  temp_tag_result = '1;
-      default:             temp_tag_result = '0;
-    endcase
+    dift_load_addr_tag = {DIFT_TAG_SIZE{ (|op_a_tag_q) | (|op_b_tag_q) }};
+    
+    if (DIFT_TAG_SIZE == 1) begin
+      // OR reduction of the 4 tag bits to a single tag bit
+      dift_load_val_tag = |data_rtag_ext;
+    end
+    else begin // DIFT_TAG_SIZE == 4
+      // no reduction needed, as core also uses 4 tag bits
+      dift_load_val_tag = data_rtag_ext;
+    end
+    
+    
+    // handle propagation policies
+    
+    // tag propagation is enabled for both: value and address
+    if (dift_proppol_load_i.en_val && dift_proppol_load_i.en_addr)
+    begin
+      if (dift_proppol_load_i.mode == DIFT_PROP_MODE_OR)
+      begin
+        dift_load_tag_result = {DIFT_TAG_SIZE{ (|dift_load_addr_tag) | (|dift_load_val_tag) }};  // OR combination
+      end
+      else  // DIFT_PROP_MODE_AND
+      begin
+        dift_load_tag_result = {DIFT_TAG_SIZE{ (|dift_load_addr_tag) & (|dift_load_val_tag) }};  // AND combination
+      end
+    end
+    // tag propagation is enabled only for value
+    else if (dift_proppol_load_i.en_val)
+    begin
+      dift_load_tag_result = dift_load_val_tag;
+    end
+    // tag propagation is enabled only for address
+    else if (dift_proppol_load_i.en_addr)
+    begin
+      dift_load_tag_result = dift_load_addr_tag;
+    end
+    // no tag propagation enabled (neither value nor address)
+    else
+    begin
+      dift_load_tag_result = '0;
+    end
 
     // output to register file
-    temp_tag_result_type = temp_tag_result;
     if (DIFT_TAG_SIZE == 4) begin
       case(data_type_ex_i)
         2'b00:  // word
         begin
-          temp_tag_result_type = temp_tag_result;
+          dift_load_tag_result_type = dift_load_tag_result;
         end
         2'b01:  // halfword
         begin
-          temp_tag_result_type = temp_tag_result & 4'b0011;
+          dift_load_tag_result_type = dift_load_tag_result & 4'b0011;
         end
         2'b10:  // byte
         begin
-          temp_tag_result_type = temp_tag_result & 4'b0001;
+          dift_load_tag_result_type = dift_load_tag_result & 4'b0001;
         end
       endcase
     end
+    else
+    begin
+      dift_load_tag_result_type = dift_load_tag_result;
+    end
   end
 
-  assign data_rtag_ex_o = temp_tag_result_type;
+  // TODO: is this correct for all possible configurations (policies)?
+  assign data_rtag_ex_o = (data_rvalid_i == 1'b1) ? dift_load_tag_result_type : rtag_q;
 `endif
 
   // output to data interface

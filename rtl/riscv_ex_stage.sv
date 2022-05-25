@@ -119,17 +119,20 @@ module riscv_ex_stage
 `ifdef DIFT_ACTIVE
   // DIFT Tag Propagation
   input  logic          post_increment_instr_i,
-  input  dift_opclass_t dift_opclass_i,
+  input  dift_prop_opclass_t  dift_prop_opclass_i,
+  input  dift_check_opclass_t dift_check_opclass_i,
   input  dift_tag_t     operand_a_tag_i,
   input  dift_tag_t     operand_b_tag_i,
   input  dift_tag_t     operand_c_tag_i,
+  input  logic          rega_used_i,
+  input  logic          regb_used_i,
+  input  logic          regc_used_i,
   input  dift_tpcr_t    dift_tpcr_i,
   output dift_tag_t     dift_tag_result_o,
   // DIFT Tag Check
   input  dift_tccr_t    dift_tccr_i,
   input  dift_tag_t     instr_rtag_i,
   input  logic          is_decoding_i,
-  input  logic [ 1:0]   jump_in_i,
   input  dift_tag_t     jump_target_tag_i,
   output logic          dift_trap_o,
   output dift_trap_t    dift_trap_type_o,
@@ -265,16 +268,7 @@ module riscv_ex_stage
     end else begin
       regfile_alu_we_fw_o      = regfile_alu_we_i & ~apu_en_i; // private fpu incomplete?
       regfile_alu_waddr_fw_o   = regfile_alu_waddr_i;
-`ifdef DIFT_ACTIVE
-      // for post-increment load/stores: the ALU result (incremented load/store-address (operand a))
-      // is written back, but the tag_propagation_result holds the value for the actual store operation
-      // -> as instead of using the Tag Propagation result, the previous value has to be used!
-      if (post_increment_instr_i) begin
-        regfile_alu_wtag_fw_o = operand_a_tag_i;
-      end else begin
-        regfile_alu_wtag_fw_o = tag_propagation_result;
-      end
-`endif
+
       if (alu_en_i) begin
         regfile_alu_wdata_fw_o = alu_result;
       end
@@ -285,10 +279,23 @@ module riscv_ex_stage
         regfile_alu_wdata_fw_o = csr_rdata_i;
       end
 `ifdef DIFT_ACTIVE
+      if (alu_en_i | mult_en_i | csr_access_i) begin
+        regfile_alu_wtag_fw_o  = tag_propagation_result;
+
+        // for post-increment load/stores: the ALU result (incremented load/store-address (operand a))
+        // is written back, but the tag_propagation_result holds the value for the actual store operation
+        // -> as instead of using the Tag Propagation result, the previous value has to be used!
+        if (post_increment_instr_i) begin
+          regfile_alu_wtag_fw_o = operand_a_tag_i;
+        end else begin
+          regfile_alu_wtag_fw_o = tag_propagation_result;
+        end
+      end
+      
       if (dift_en_i) begin
         regfile_alu_wdata_fw_o = dift_result;
         regfile_alu_wtag_fw_o  = dift_result_tag;
-      end;
+      end
 `endif
     end
   end
@@ -334,6 +341,7 @@ module riscv_ex_stage
   ////////////////////////////
 `ifdef DIFT_ACTIVE
 
+  // Tag Propagation
   dift_tag_propagation
   dift_tag_propagation_i
   (
@@ -342,7 +350,11 @@ module riscv_ex_stage
     .operand_b_tag_i      ( operand_b_tag_i        ),
     .operand_c_tag_i      ( operand_c_tag_i        ),
     // operation class
-    .opclass_i            ( dift_opclass_i         ),
+    .opclass_i            ( dift_prop_opclass_i    ),
+    //
+    .rega_used_i          ( rega_used_i            ),
+    .regb_used_i          ( regb_used_i            ),
+    .regc_used_i          ( regc_used_i            ),
     // tag propagation configuration register (TPCR)
     .tpcr_i               ( dift_tpcr_i            ),
     // output (resulting tag)
@@ -351,6 +363,7 @@ module riscv_ex_stage
 
   assign dift_tag_result_o = tag_propagation_result;
 
+  // Tag Manipulation
   riscv_dift_tag_manipulation
   dift_tag_manipulation_i
   (
@@ -366,6 +379,7 @@ module riscv_ex_stage
     .result_tag_o         ( dift_result_tag      )
   );
   
+  // Tag Check
   dift_tag_check
   dift_tag_check_i
   (
@@ -375,10 +389,8 @@ module riscv_ex_stage
     // configuration
     .tccr_i               ( dift_tccr_i          ),
     // info about executing instruction (which check logic has to be applied)
-    .opclass_i            ( dift_opclass_i       ),
+    .opclass_i            ( dift_check_opclass_i ),
     .is_decoding_i        ( is_decoding_i        ),
-    //.branch_decision_i    ( branch_decision_o    ),
-    .jump_in_i            ( jump_in_i            ),
     // tag data for EXEC check
     .instr_rtag_i         ( instr_rtag_i         ),
     // tag data for JALR check

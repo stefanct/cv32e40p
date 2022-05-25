@@ -10,161 +10,212 @@ import riscv_defines::*;
 
 module dift_tag_propagation
 (
-    // tag bits of the operands of the current instruction
-    input  dift_tag_t     operand_a_tag_i,
-    input  dift_tag_t     operand_b_tag_i,
-    input  dift_tag_t     operand_c_tag_i,
-
-    // type of instruction that is executed
-    input  dift_opclass_t opclass_i,
-
     // TPCR (tag propagation configuration register)
-    input  dift_tpcr_t    tpcr_i,
+    input  dift_tpcr_t  tpcr_i,
+    
+    // type of instruction that is executed
+    input  dift_prop_opclass_t opclass_i,
+    
+    // which registers are used by the instruction
+    input  logic        rega_used_i,
+    input  logic        regb_used_i,
+    input  logic        regc_used_i,
+    
+    // tag bits of the operands of the current instruction
+    input  dift_tag_t   operand_a_tag_i,
+    input  dift_tag_t   operand_b_tag_i,
+    input  dift_tag_t   operand_c_tag_i,
 
     // calculated output tag
-    output dift_tag_t     result_o
+    output dift_tag_t   result_o
 );
-
-  // TODO: directly use the defined fields of the dift_tpcr_t type
-  // configured policy per operation class
-  dift_proppol_mem_t policy_store;
-  dift_propmode2_t   policy_alu;
-  dift_propmode2_t   policy_shift;  // TODO properly !!!
-  dift_propmode2_t   policy_comp;
-  dift_propmode1_t   policy_csr;
-  dift_propmode2_t   policy_mul;
-  dift_propmode2_t   policy_float;
-
-  assign policy_store.en_value = tpcr_i[   18];
-  assign policy_store.en_addr  = tpcr_i[   17];
-  assign policy_store.mode     = tpcr_i[16:15];
-  assign policy_alu   = tpcr_i[10:9];
-  assign policy_shift = tpcr_i[ 8:7];
-  assign policy_comp  = tpcr_i[ 6:5];
-  assign policy_csr   = tpcr_i[   4];
-  assign policy_mul   = tpcr_i[ 3:2];
-  assign policy_float = tpcr_i[ 1:0];
-
 
   // operation class mux
   always_comb
   begin
-
-    // 
     unique case (opclass_i)
-      DIFT_OPCLASS_LOAD,    // propagation of loads is done in the LSU -> no tag output needed
-      DIFT_OPCLASS_XUI,     // LUI, AUIPC: using only immediates -> output is never tagged
-      DIFT_OPCLASS_JUMP,    // jumps: current PC + 4 is written to rd (link register) -> output is never tagged
-      DIFT_OPCLASS_BRANCH,  // branches have no rd -> no tag output needed
-      DIFT_OPCLASS_SYS:     // FENCE, FENCE.I, ECALL, EBREAK -> no tag output needed
+    
+      // No propagation needed
+      DIFT_PROP_OPCLASS_NONE:  // tag propagation for LOADs is implemented in LSU (cannot be done here)
       begin
         result_o = '0;
       end
-
-/*
-      DIFT_OPCLASS_LOAD: begin
-        // the value propagation cannot be done here, but only in the LSU. So (only) for loads, the result_o
-        // does not represent the final tag result, but it has to be further combined with the value's tags and
-        // propagation configuration in the LSU.
-        if (policy_load_addr_en == 1'b1)
-          result_o = operand_a_tag_i;
-        else
-          result_o = '0;
-      end
-*/
-
-      DIFT_OPCLASS_STORE: begin
-        dift_tag_t temp_tag_val_store;
-        dift_tag_t temp_tag_addr_store;
-        // handle value and address propagation enable policies
-        //   operand a holds the base address in store operations
-        //   operand b holds the address offset in store operations -> can also be a register value (in PULP custom instructions)
-        //   operand c holds the value in store operations
-        temp_tag_val_store  = operand_c_tag_i & {DIFT_TAG_SIZE{policy_store.en_value}};
-        temp_tag_addr_store = {DIFT_TAG_SIZE{ ((|operand_a_tag_i) | (|operand_b_tag_i)) & policy_store.en_addr }};
-
-        // handle propagation mode policy
-        unique case(policy_store.mode)
-          DIFT_PROPMODE2_OR:   result_o = temp_tag_val_store | temp_tag_addr_store;
-          DIFT_PROPMODE2_AND:  result_o = temp_tag_val_store & temp_tag_addr_store;
-          DIFT_PROPMODE2_ZERO: result_o = '0;
-          DIFT_PROPMODE2_ONE:  result_o = '1;
-          default:             result_o = '0;
-        endcase
-      end
-
-      // TODO: handle pseudoinstruction properly (e.g. mv: mv rd, rs  ==> addi rd, rs, 0)
-      DIFT_OPCLASS_ALU,
-      DIFT_OPCLASS_SHIFT, // TODO: special handling for shifts needed?
-      DIFT_OPCLASS_COMP,
-      DIFT_OPCLASS_MUL,
-      DIFT_OPCLASS_FLOAT:
+      
+      // LOAD / STORE propagation is basically done in the LSU!
+      // However, for misaligned accesses, the ALU is used to calculate the address for the second memory
+      // access (new address = old address + 4).
+      // While the LSU loads/stores the first value from/to memory, the ALU executes the ADD instruction
+      // for the source/destination address of the second memory access.
+      // The calculation result (new address) is forwarded via the regfile_alu_wdata_fw signal.
+      // Thus we have to do the tag propagation also accordingly here for the ADD instruction.
+      DIFT_PROP_OPCLASS_LOAD,
+      DIFT_PROP_OPCLASS_STOR:
       begin
-        logic [1:0] temp_used_policy;
-
-        // select the respective policy
-        unique case(opclass_i)
-          DIFT_OPCLASS_ALU:   temp_used_policy = policy_alu;
-          DIFT_OPCLASS_SHIFT: temp_used_policy = policy_shift;
-          DIFT_OPCLASS_COMP:  temp_used_policy = policy_comp;
-          DIFT_OPCLASS_MUL:   temp_used_policy = policy_mul;
-          DIFT_OPCLASS_FLOAT: temp_used_policy = policy_float;
-          default:            temp_used_policy = DIFT_PROPMODE2_ZERO;
-        endcase
-
-        // apply the configured propagation policy
-        unique case(temp_used_policy)
-          DIFT_PROPMODE2_OR:   result_o = {DIFT_TAG_SIZE{ (|operand_a_tag_i) | (|operand_b_tag_i) }};
-          DIFT_PROPMODE2_AND:  result_o = {DIFT_TAG_SIZE{ (|operand_a_tag_i) & (|operand_b_tag_i) }};
-          DIFT_PROPMODE2_ZERO: result_o = '0;
-          DIFT_PROPMODE2_ONE:  result_o = '1;
-          default:             result_o = '0;
-        endcase
+        // just forward the tag bits as they were before the addition with the constant 4
+        result_o = operand_a_tag_i;
       end
       
-      // PULP specific ALU: only operand a used
-      DIFT_OPCLASS_OPEXT_A: begin
-        unique case(policy_alu)
-          DIFT_PROPMODE2_OR:   result_o = {DIFT_TAG_SIZE{ (|operand_a_tag_i) }};
-          DIFT_PROPMODE2_AND:  result_o = {DIFT_TAG_SIZE{ (|operand_a_tag_i) }};
-          DIFT_PROPMODE2_ZERO: result_o = '0;
-          DIFT_PROPMODE2_ONE:  result_o = '1;
-          default:             result_o = '0;
-        endcase
+      
+      // special BRANCH propagation
+      // TODO: an implementation like in Chen2005a would be nice
+      // TODO: analyse if this is even possible with RISC-V architecture
+      DIFT_PROP_OPCLASS_BRAN:
+      begin
+        // tpcr_i.bran_clr
+        result_o = '0;
       end
       
-      // PULP specific ALU: operands a and b used
-      DIFT_OPCLASS_OPEXT_AB: begin
-        unique case(policy_alu)
-          DIFT_PROPMODE2_OR:   result_o = {DIFT_TAG_SIZE{ (|operand_a_tag_i) | (|operand_b_tag_i) }};
-          DIFT_PROPMODE2_AND:  result_o = {DIFT_TAG_SIZE{ (|operand_a_tag_i) & (|operand_b_tag_i) }};
-          DIFT_PROPMODE2_ZERO: result_o = '0;
-          DIFT_PROPMODE2_ONE:  result_o = '1;
-          default:             result_o = '0;
-        endcase
-      end
       
-      // PULP specific ALU: operands a, b and c used
-      DIFT_OPCLASS_OPEXT_ABC: begin
-        unique case(policy_alu)
-          DIFT_PROPMODE2_OR:   result_o = {DIFT_TAG_SIZE{ (|operand_a_tag_i) | (|operand_b_tag_i) | (|operand_c_tag_i) }};
-          DIFT_PROPMODE2_AND:  result_o = {DIFT_TAG_SIZE{ (|operand_a_tag_i) & (|operand_b_tag_i) & (|operand_c_tag_i) }};
-          DIFT_PROPMODE2_ZERO: result_o = '0;
-          DIFT_PROPMODE2_ONE:  result_o = '1;
-          default:             result_o = '0;
-        endcase
-      end
-
-      DIFT_OPCLASS_CSR: begin
-        if (policy_csr == DIFT_PROPMODE1_ONE)
-          result_o = '1;
-        else  // DIFT_PROPMODE1_ZERO
+      // special CSR access propagation (relevant only for CSR reads) 
+      DIFT_PROP_OPCLASS_CSR:
+      begin
+        if (~tpcr_i.csr_en)
           result_o = '0;
+        else
+          result_o = '1;
       end
+      
+      
+      // special SHIFT propagation
+      DIFT_PROP_OPCLASS_SHFT:
+      begin
+        if (~tpcr_i.shft.en)
+        begin
+          result_o = '0;
+        end
+        else
+        begin
+          // reg-reg instruction, and both operands shall be used for propagation
+          if ((regb_used_i) && (tpcr_i.shft.en_shamt))
+          begin
+            if (tpcr_i.shft.mode == DIFT_PROP_MODE_OR)
+            begin
+              result_o = {DIFT_TAG_SIZE{ (|operand_a_tag_i) | (|operand_b_tag_i) }};  // OR combination
+            end
+            else  // DIFT_PROP_MODE_AND
+            begin
+              result_o = {DIFT_TAG_SIZE{ (|operand_a_tag_i) & (|operand_b_tag_i) }};  // AND combination
+            end
+          end
+          // either it is a reg-imm instruction, or it is a reg-reg instruction but operand b (shamt) shall not be considered
+          //  => only operand a has to be considered
+          else
+          begin
+            result_o = operand_a_tag_i;
+          end
+        end
+      end
+      
+      
+      // common propagation for normal 2-operand ALU instructions
+      DIFT_PROP_OPCLASS_LOG,
+      DIFT_PROP_OPCLASS_ADD,
+      DIFT_PROP_OPCLASS_MUL,
+      DIFT_PROP_OPCLASS_COMP,
+      DIFT_PROP_OPCLASS_FPU:
+      begin
+        // select correct policy configuration
+        logic temp_policy_en;
+        logic temp_policy_mode;
+        
+        unique case (opclass_i)
+          DIFT_PROP_OPCLASS_LOG: begin
+            temp_policy_en   = tpcr_i.log.en;
+            temp_policy_mode = tpcr_i.log.mode;
+          end
+          DIFT_PROP_OPCLASS_ADD: begin
+            temp_policy_en   = tpcr_i.add.en;
+            temp_policy_mode = tpcr_i.add.mode;
+          end
+          DIFT_PROP_OPCLASS_MUL: begin
+            temp_policy_en   = tpcr_i.mul.en;
+            temp_policy_mode = tpcr_i.mul.mode;
+          end
+          DIFT_PROP_OPCLASS_COMP: begin
+            temp_policy_en   = tpcr_i.comp.en;
+            temp_policy_mode = tpcr_i.comp.mode;
+          end
+          DIFT_PROP_OPCLASS_FPU: begin
+            temp_policy_en   = tpcr_i.fpu.en;
+            temp_policy_mode = tpcr_i.fpu.mode;
+          end
+        endcase
+        
+        // apply selected policy
+        if (~temp_policy_en)
+        begin
+          result_o = '0;
+        end
+        else
+        begin
+          // reg-imm instruction
+          if (~regb_used_i)
+          begin
+            result_o = operand_a_tag_i; // just forward the only register operand (rs1)
+          end
+          // reg-reg instruction
+          else
+          begin
+            if (temp_policy_mode == DIFT_PROP_MODE_OR)
+            begin
+              result_o = {DIFT_TAG_SIZE{ (|operand_a_tag_i) | (|operand_b_tag_i) }};  // OR combination
+            end
+            else  // DIFT_PROP_MODE_AND
+            begin
+              result_o = {DIFT_TAG_SIZE{ (|operand_a_tag_i) & (|operand_b_tag_i) }};  // AND combination
+            end
+          end
+        end //~apply selected policy
 
-      DIFT_OPCLASS_OTHER: result_o = '0; // TODO okay? -> NO (used by SDK/runtime)
-      default:            result_o = '1; // TODO okay?
+      end //~common propagation for normal 2-operand ALU instructions
+      
+      
+      // special Xpulp propagation
+      // TODO: maybe some special handling is needed here
+      DIFT_PROP_OPCLASS_XPLP:
+      begin
+        if (~tpcr_i.xplp.en)
+        begin
+          result_o = '0;
+        end
+        else
+        begin
+          // 3-operand-instructions
+          if ((rega_used_i) && (regb_used_i) && (regc_used_i))
+          begin
+            if (tpcr_i.xplp.mode == DIFT_PROP_MODE_OR)
+            begin
+              result_o = {DIFT_TAG_SIZE{ (|operand_a_tag_i) | (|operand_b_tag_i) | (|operand_c_tag_i) }};  // OR combination
+            end
+            else  // DIFT_PROP_MODE_AND
+            begin
+              result_o = {DIFT_TAG_SIZE{ (|operand_a_tag_i) & (|operand_b_tag_i) & (|operand_c_tag_i) }};  // AND combination
+            end
+          end
+          
+          // 2-operand-instructions
+          else if ((rega_used_i) && (regb_used_i))
+          begin
+            if (tpcr_i.xplp.mode == DIFT_PROP_MODE_OR)
+            begin
+              result_o = {DIFT_TAG_SIZE{ (|operand_a_tag_i) | (|operand_b_tag_i) }};  // OR combination
+            end
+            else  // DIFT_PROP_MODE_AND
+            begin
+              result_o = {DIFT_TAG_SIZE{ (|operand_a_tag_i) & (|operand_b_tag_i) }};  // AND combination
+            end
+          end
+          
+          // 1-operand-instructions
+          else
+          begin
+            result_o = operand_a_tag_i;
+          end
+        end
+      end
+    
     endcase
-  end
+  
+  end //~always_comb
 
 endmodule

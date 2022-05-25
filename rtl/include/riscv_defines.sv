@@ -199,33 +199,54 @@ parameter DIFT_OP_TAGSET = 3'b000;
 parameter DIFT_OP_TAGRD  = 3'b001;
 
 // DIFT types
-typedef logic[3:0] dift_opclass_t;      // operation classes (instruction classes)
+typedef logic[3:0] dift_prop_opclass_t;
+typedef logic[3:0] dift_check_opclass_t;
 typedef logic[2:0] dift_trap_t;
 
-    // propagation policies
-    typedef logic[1:0] dift_propmode2_t;    // propagation mode - 2 bit type
+// DIFT Propagation Policy types
+    // normal propagation policy
+    typedef struct packed
+    {
+        logic   mode;
+        logic   en;
+    } dift_proppol_std_t;
 
-    typedef logic      dift_propmode1_t;    // propagation mode - 1 bit type
+    // special propagation policy for memory operations (loads, stores)
+    typedef struct packed
+    {
+        logic   reserved;
+        logic   mode;
+        logic   en_addr;
+        logic   en_val;
+    } dift_proppol_mem_t;
 
-    typedef struct packed {
-      logic            en_value;
-      logic            en_addr;
-      dift_propmode2_t mode;
-    } dift_proppol_mem_t;   // propagation policy for memory operations (loads, stores)
+    // special propagation policy for shift instructions
+    typedef struct packed
+    {
+        logic reserved;
+        logic mode;
+        logic en_shamt;
+        logic en;
+    } dift_proppol_shft_t;
 
-    typedef struct packed {
-      logic [31:19]         reserved;   // [31:19]
-      dift_proppol_mem_t    store;      // [18:15]
-      dift_proppol_mem_t    load;       // [14:11]
-      dift_propmode2_t      alu;        // [10: 9]
-      dift_propmode2_t      shift;      // [ 8: 7]
-      dift_propmode2_t      comp;       // [ 6: 5]
-      dift_propmode1_t      csr;        // [    4]
-      dift_propmode2_t      mul;        // [ 3: 2]
-      dift_propmode2_t      float;      // [ 1: 0]
+    // Propagation Policy Register
+    typedef struct packed
+    {
+        logic[5:0]          reserved; // [31:26]
+        dift_proppol_std_t  xplp;     // [25:24]
+        dift_proppol_std_t  fpu;      // [23:22]
+        dift_proppol_std_t  comp;     // [21:20]
+        dift_proppol_shft_t shft;     // [19:16]
+        dift_proppol_std_t  mul;      // [15:14]
+        dift_proppol_std_t  add;      // [13:12]
+        dift_proppol_std_t  log;      // [11:10]
+        logic               csr_en;   // [    9]
+        logic               bran_clr; // [    8]
+        dift_proppol_mem_t  load;     // [ 7: 4]
+        dift_proppol_mem_t  stor;     // [ 3: 0]
     } dift_tpcr_t;
 
-    // check policies
+// DIFT Check Policy types
     typedef logic[1:0]  dift_checkpol2_t;   // check policy - 2 bit type
     typedef logic       dift_checkpol1_t;   // check policy - 1 bit type
 
@@ -236,37 +257,26 @@ typedef logic[2:0] dift_trap_t;
 
     typedef struct packed {
       logic [31:7]      reserved; // [31: 7]
-      dift_checkpol1_t  exec;     // [    6]
-      dift_checkpol1_t  jalr;     // [    5]
-      dift_checkpol_b_t branch;   // [ 4: 2]
-      dift_checkpol1_t  store;    // [    1]
-      dift_checkpol1_t  load;     // [    0]
+      dift_checkpol_b_t bran;     // [ 6: 4]
+      dift_checkpol1_t  jalr;     // [    3]
+      dift_checkpol1_t  load;     // [    2]
+      dift_checkpol1_t  stor;     // [    1]
+      dift_checkpol1_t  exec;     // [    0]
     } dift_tccr_t;
 
 
-/*
-// TODO can probably be removed
-typedef logic[2:0] dift_proppol_t;  // propagation policy type
-// DIFT propagation policies
-parameter DIFT_PROPPOL_NONE  = 3'b000;  // no propagation needed
-parameter DIFT_PROPPOL_ZERO  = 3'b001;  // tag result is hardcoded 0 (not set)
-parameter DIFT_PROPPOL_ONE   = 3'b010;  // tag result is hardcoded 1 (set)
-parameter DIFT_PROPPOL_FIXED = 3'b011;  // tag result is configured with a fixed value (either 0 or 1)
-parameter DIFT_PROPPOL_ALU   = 3'b100;  // tag is propagated with the configured policy - for ALU operations
-parameter DIFT_PROPPOL_SHIFT = 3'b101;  // tag is propagated with the configured policy - specifically for shift operations
-parameter DIFT_PROPPOL_LOAD  = 3'b110;  // tag is propagated with the configured policy - specifically for load operations
-parameter DIFT_PROPPOL_STORE = 3'b111;  // tag is propagated with the configured policy - specifically for store operations
-*/
+// DIFT propagation enable
+parameter DIFT_PROP_OFF = 1'b0;
+parameter DIFT_PROP_ON  = 1'b1;
 
 // DIFT propagation modes
-// 2bit propmode
-parameter DIFT_PROPMODE2_ZERO = 2'b00;
-parameter DIFT_PROPMODE2_OR   = 2'b01;
-parameter DIFT_PROPMODE2_AND  = 2'b10;
-parameter DIFT_PROPMODE2_ONE  = 2'b11;
-// 1bit propmode
-parameter DIFT_PROPMODE1_ZERO = 1'b0;
-parameter DIFT_PROPMODE1_ONE  = 1'b1;
+parameter DIFT_PROP_MODE_OR  = 1'b0; // tag bits of operands are OR-ed to calculate resulting tag
+parameter DIFT_PROP_MODE_AND = 1'b1; // tag bits of operands are AND-ed to calculate resulting tag
+
+// TODO: can this be removed?
+parameter DIFT_PROP_COMB_OR   = 1'b0; // OR-combination of byte-wise tag bits of an operand, before furhter propagation (4 bits -> 1 bit)
+parameter DIFT_PROP_COMB_NONE = 1'b1; // no combination of tag bits within each operand -> the operands' tag bits are combined byte-wise
+
 
 // DIFT check modes
 // 2bit checkmode
@@ -281,31 +291,39 @@ parameter DIFT_CHECKMODE1_ON    = 1'b1;   // check enabled
 parameter DIFT_CHECK_SINGLEMODESELECT_OP_A  = 1'b0; // use operand a for single operand check mode
 parameter DIFT_CHECK_SINGLEMODESELECT_OP_B  = 1'b1; // use operand b for single operand check mode
 
-// DIFT operation classes (instruction classes)
-parameter DIFT_OPCLASS_XUI       = 4'b0000; //  0: Upper Immediate: LUI, AUIPC
-parameter DIFT_OPCLASS_JUMP      = 4'b0001; //  1: Jump: JAL, JALR
-parameter DIFT_OPCLASS_BRANCH    = 4'b0010; //  2: Branch: BEQ, BNE, BLT, BGE, BLTU, BGEU
-parameter DIFT_OPCLASS_LOAD      = 4'b0011; //  3: Load: LB, LH, LW, LBU, LHU, post-increment-loads (PULP custom)
-parameter DIFT_OPCLASS_STORE     = 4'b0100; //  4: Store: SB, SH, SW, post-increment-stores (PULP custom)
-parameter DIFT_OPCLASS_ALU       = 4'b0101; //  5: ALU: ADDI, XORI, ORI, ANDI, ADD, SUB, XOR, OR, AND
-parameter DIFT_OPCLASS_SHIFT     = 4'b0110; //  6: Shift: SLLI, SRLI, SRAI, SLL, SRL, SRA
-parameter DIFT_OPCLASS_COMP      = 4'b0111; //  7: Compare: SLTI, SLTIU, SLT, SLTU
-parameter DIFT_OPCLASS_SYS       = 4'b1000; //  8: System: FENCE, FENCE.I, ECALL, EBREAK
-parameter DIFT_OPCLASS_CSR       = 4'b1001; //  9: CSR: CSRRW, CSRRS, CSRRC, CSRRWI, CSRRSI, CSRRCI
-parameter DIFT_OPCLASS_MUL       = 4'b1010; // 10: RV32M instructions
-parameter DIFT_OPCLASS_FLOAT     = 4'b1011; // 11: RV32F instructions
-parameter DIFT_OPCLASS_OPEXT_A   = 4'b1100; // 12: PULP custom - operand a used only
-parameter DIFT_OPCLASS_OPEXT_AB  = 4'b1101; // 13: PULP custom - operands a and b used
-parameter DIFT_OPCLASS_OPEXT_ABC = 4'b1110; // 14: PULP custom - operands a, b and c used
-parameter DIFT_OPCLASS_OTHER     = 4'b1111; // 15: all other instructions (e.g. custom extensions like XPulp)
+
+
+parameter DIFT_PROP_OPCLASS_NONE = 4'h0; // NO propagation: LUI, AUIPC, JAL, JALR, System (FENCE, FENCE.I, ECALL, EBREAK), DIFT, (all others)
+parameter DIFT_PROP_OPCLASS_STOR = 4'h1; // Store: SB, SH, SW, post-increment-stores (PULP custom)
+parameter DIFT_PROP_OPCLASS_LOAD = 4'h2; // Load: LB, LH, LW, LBU, LHU, post-increment-loads (PULP custom)
+// 0x3 kept empty to be consistent with IDs of tag check and exception IDs
+// (JALR, which would be opclass 0x3, is contained in prop-opclass 0x0)
+parameter DIFT_PROP_OPCLASS_BRAN = 4'h4; // Branch: BEQ, BNE, BLT, BGE, BLTU, BGEU
+parameter DIFT_PROP_OPCLASS_CSR  = 4'h5; // CSR: CSRRW, CSRRS, CSRRC, CSRRWI, CSRRSI, CSRRCI
+parameter DIFT_PROP_OPCLASS_LOG  = 4'h6; // Logical: AND, OR, XOR, ANDI, ORI, XORI
+parameter DIFT_PROP_OPCLASS_ADD  = 4'h7; // Additions: ADD, SUB, ADDI
+parameter DIFT_PROP_OPCLASS_MUL  = 4'h8; // MUL (RV32M, XPulp MAC): MUL, MULH, MULHSU, MULHU, DIV, DIVU, REM, REMU
+parameter DIFT_PROP_OPCLASS_SHFT = 4'h9; // Shift: SLLI, SRLI, SRAI, SLL, SRL, SRA
+parameter DIFT_PROP_OPCLASS_COMP = 4'hA; // Compare: SLTI, SLTIU, SLT, SLTU
+parameter DIFT_PROP_OPCLASS_FPU  = 4'hB; // Float (RV32F)
+parameter DIFT_PROP_OPCLASS_XPLP = 4'hC; // XPulp operations
+// TODO: split XPulp instructions furhter?
+
+
+// DIFT operation classes for tag check
+parameter DIFT_CHECK_OPCLASS_NONE = 3'h0;
+parameter DIFT_CHECK_OPCLASS_STOR = 3'h1;
+parameter DIFT_CHECK_OPCLASS_LOAD = 3'h2;
+parameter DIFT_CHECK_OPCLASS_JALR = 3'h3;
+parameter DIFT_CHECK_OPCLASS_BRAN = 3'h4;
+
 
 // DIFT trap types
-parameter DIFT_TRAP_TYPE_NONE = 3'b000; // 0
-parameter DIFT_TRAP_TYPE_EXEC = 3'b001; // 1
-parameter DIFT_TRAP_TYPE_JALR = 3'b010; // 2
-parameter DIFT_TRAP_TYPE_BRAN = 3'b011; // 3
-parameter DIFT_TRAP_TYPE_STOR = 3'b100; // 4
-parameter DIFT_TRAP_TYPE_LOAD = 3'b101; // 5
+parameter DIFT_TRAP_TYPE_EXEC = 3'h0;
+parameter DIFT_TRAP_TYPE_STOR = 3'h1;
+parameter DIFT_TRAP_TYPE_LOAD = 3'h2;
+parameter DIFT_TRAP_TYPE_JALR = 3'h3;
+parameter DIFT_TRAP_TYPE_BRAN = 3'h4;
 
 
 /////////////////////////////////////////////////////////
@@ -458,11 +476,13 @@ parameter EXC_CAUSE_STORE_FAULT  = 6'h07;
 parameter EXC_CAUSE_ECALL_UMODE  = 6'h08;
 parameter EXC_CAUSE_ECALL_MMODE  = 6'h0B;
 parameter EXC_CAUSE_DIFT_VIOLAT  = 6'h04; // TODO remove
-parameter EXC_CAUSE_DIFT_EXEC    = 6'h11;
-parameter EXC_CAUSE_DIFT_JALR    = 6'h12;
-parameter EXC_CAUSE_DIFT_BRAN    = 6'h13;
-parameter EXC_CAUSE_DIFT_STOR    = 6'h14;
-parameter EXC_CAUSE_DIFT_LOAD    = 6'h15;
+
+parameter EXC_CAUSE_DIFT_EXEC    = 6'h10;
+parameter EXC_CAUSE_DIFT_STOR    = 6'h11;
+parameter EXC_CAUSE_DIFT_LOAD    = 6'h12;
+parameter EXC_CAUSE_DIFT_JALR    = 6'h13;
+parameter EXC_CAUSE_DIFT_BRAN    = 6'h14;
+
 
 // Trap mux selector
 parameter TRAP_MACHINE      = 1'b0;
