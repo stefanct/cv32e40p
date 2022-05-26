@@ -177,7 +177,6 @@ module riscv_id_stage
 `ifdef DIFT_ACTIVE
     // DIFT tag propagation
     output dift_prop_opclass_t  dift_prop_opclass_ex_o,
-    output dift_check_opclass_t dift_check_opclass_ex_o,
     output dift_tag_t     operand_a_tag_ex_o,
     output dift_tag_t     operand_b_tag_ex_o,
     output dift_tag_t     operand_c_tag_ex_o,
@@ -195,12 +194,11 @@ module riscv_id_stage
     output dift_tag_t     dift_operand_a_tag_ex_o,
     output dift_tag_t     dift_operand_b_tag_ex_o,
     output dift_tag_t     dift_operand_c_tag_ex_o,
-    // additional signals needed for DIFT tag check
-    output dift_tag_t     instr_rtag_ex_o,
-    output dift_tag_t     jump_target_tag_o,
-    // DIFT trap input signal
-    input  logic          dift_trap_i,
-    input  dift_trap_t    dift_trap_type_i,
+    // DIFT tag check
+    input  dift_tccr_t    dift_tccr_i,
+    input  logic          dift_trap_lsu_i,
+    input  dift_trap_t    dift_trap_type_lsu_i,
+    output dift_check_opclass_t  dift_check_opclass_ex_o,
 `endif
 
     // CSR ID/EX
@@ -427,9 +425,13 @@ module riscv_id_stage
 `ifdef DIFT_ACTIVE
   logic           post_increment_instr;
   dift_prop_opclass_t  dift_prop_opclass;
-  dift_check_opclass_t dift_check_opclass;
   logic           dift_en;
   logic [2:0]     dift_operator;
+  logic       dift_trap_id;
+  dift_trap_t dift_trap_type_id;
+  logic       dift_trap;
+  dift_trap_t dift_trap_type;
+  dift_check_opclass_t  dift_check_opclass;
 `endif
 
   // Register Write Control
@@ -1422,8 +1424,8 @@ module riscv_id_stage
     .exc_kill_o                     ( exc_kill               ),
 
 `ifdef DIFT_ACTIVE
-    .dift_trap_i                    ( dift_trap_i            ),
-    .dift_trap_type_i               ( dift_trap_type_i       ),
+    .dift_trap_i                    ( dift_trap              ),
+    .dift_trap_type_i               ( dift_trap_type         ),
 `endif
 
     // Debug Signal
@@ -1577,6 +1579,56 @@ module riscv_id_stage
   assign hwloop_valid = instr_valid_i & clear_instr_valid_o & is_hwlp_i;
 
 
+
+  ////////////////////////////
+  //       DIFT UNIT        //
+  //       Tag Check        //
+  ////////////////////////////
+`ifdef DIFT_ACTIVE
+
+  // Tag Check
+  dift_tag_check
+  dift_tag_check_i
+  (
+    .clk                  ( clk                  ),
+    .rst_n                ( rst_n                ),
+
+    // configuration
+    .tccr_i               ( dift_tccr_i          ),
+    // info about executing instruction (which check logic has to be applied)
+    .opclass_i            ( dift_check_opclass   ),
+    .is_decoding_i        ( is_decoding_o        ),
+    .branch_taken_ex_i    ( branch_taken_ex      ),
+    // tag data for EXEC check
+    .instr_rtag_i         ( instr_rtag_i         ),
+    // tag data for JALR check
+    .jump_target_tag_i    ( jump_target_tag      ),
+    // tag data for BRANCH, LOAD, STORE checks
+    .operand_a_tag_i      ( alu_operand_a_tag    ),
+    .operand_b_tag_i      ( alu_operand_b_tag    ),
+    .operand_c_tag_i      ( alu_operand_c_tag    ),
+    // output: raising trap
+    .trap_o               ( dift_trap_id         ),
+    .trap_type_o          ( dift_trap_type_id    )
+  );
+  
+  // merge trap signals from Tag Check unit here and from the LSU Tag Check unit 
+  always_comb
+  begin
+    dift_trap = dift_trap_id | dift_trap_lsu_i;
+    
+    if (dift_trap_id)
+      dift_trap_type = dift_trap_type_id;
+    else if (dift_trap_lsu_i)
+      dift_trap_type = dift_trap_type_lsu_i;
+    else
+      dift_trap_type = '0;
+  end
+
+`endif
+  
+
+
   /////////////////////////////////////////////////////////////////////////////////
   //   ___ ____        _______  __  ____ ___ ____  _____ _     ___ _   _ _____   //
   //  |_ _|  _ \      | ____\ \/ / |  _ \_ _|  _ \| ____| |   |_ _| \ | | ____|  //
@@ -1634,7 +1686,6 @@ module riscv_id_stage
       post_increment_instr_o      <= '0;
       
       dift_prop_opclass_ex_o      <= '0;
-      dift_check_opclass_ex_o     <= '0;
       operand_a_tag_ex_o          <= '0;
       operand_b_tag_ex_o          <= '0;
       operand_c_tag_ex_o          <= '0;
@@ -1651,8 +1702,7 @@ module riscv_id_stage
       dift_operand_b_tag_ex_o     <= '0;
       dift_operand_c_tag_ex_o     <= '0;
       
-      instr_rtag_ex_o             <= '0;
-      jump_target_tag_o           <= '0;
+      dift_check_opclass_ex_o     <= '0;
 `endif
 
       regfile_waddr_ex_o          <= 6'b0;
@@ -1772,13 +1822,14 @@ module riscv_id_stage
         // tag propagation
         post_increment_instr_o      <= post_increment_instr;
         dift_prop_opclass_ex_o      <= dift_prop_opclass;
-        dift_check_opclass_ex_o     <= dift_check_opclass;
         operand_a_tag_ex_o          <= alu_operand_a_tag;
         operand_b_tag_ex_o          <= alu_operand_b_tag;
         operand_c_tag_ex_o          <= alu_operand_c_tag;
         rega_used_ex_o              <= rega_used_dec;
         regb_used_ex_o              <= regb_used_dec;
         regc_used_ex_o              <= regc_used_dec;
+        // tag check
+        dift_check_opclass_ex_o     <= dift_check_opclass;
         // tag manipulation
         dift_en_ex_o                <= dift_en;
         if (dift_en) begin
@@ -1790,9 +1841,6 @@ module riscv_id_stage
           dift_operand_b_tag_ex_o   <= alu_operand_b_tag;
           dift_operand_c_tag_ex_o   <= alu_operand_c_tag;
         end;
-        // tag check signals
-        instr_rtag_ex_o             <= instr_rtag_i;
-        jump_target_tag_o           <= jump_target_tag;
 `endif
 
         regfile_we_ex_o             <= regfile_we_id;

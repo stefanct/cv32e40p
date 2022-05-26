@@ -12,15 +12,15 @@ module dift_tag_propagation
 (
     // TPCR (tag propagation configuration register)
     input  dift_tpcr_t  tpcr_i,
-    
+
     // type of instruction that is executed
     input  dift_prop_opclass_t opclass_i,
-    
+
     // which registers are used by the instruction
     input  logic        rega_used_i,
     input  logic        regb_used_i,
     input  logic        regc_used_i,
-    
+
     // tag bits of the operands of the current instruction
     input  dift_tag_t   operand_a_tag_i,
     input  dift_tag_t   operand_b_tag_i,
@@ -34,13 +34,13 @@ module dift_tag_propagation
   always_comb
   begin
     unique case (opclass_i)
-    
+
       // No propagation needed
       DIFT_PROP_OPCLASS_NONE:  // tag propagation for LOADs is implemented in LSU (cannot be done here)
       begin
         result_o = '0;
       end
-      
+
       // LOAD / STORE propagation is basically done in the LSU!
       // However, for misaligned accesses, the ALU is used to calculate the address for the second memory
       // access (new address = old address + 4).
@@ -51,11 +51,11 @@ module dift_tag_propagation
       DIFT_PROP_OPCLASS_LOAD,
       DIFT_PROP_OPCLASS_STOR:
       begin
-        // just forward the tag bits as they were before the addition with the constant 4
+        // just and forward the tag bits as they were before the addition with the constant 4
         result_o = operand_a_tag_i;
       end
-      
-      
+
+
       // special BRANCH propagation
       // TODO: an implementation like in Chen2005a would be nice
       // TODO: analyse if this is even possible with RISC-V architecture
@@ -64,9 +64,9 @@ module dift_tag_propagation
         // tpcr_i.bran_clr
         result_o = '0;
       end
-      
-      
-      // special CSR access propagation (relevant only for CSR reads) 
+
+
+      // special CSR access propagation (relevant only for CSR reads)
       DIFT_PROP_OPCLASS_CSR:
       begin
         if (~tpcr_i.csr_en)
@@ -74,8 +74,8 @@ module dift_tag_propagation
         else
           result_o = '1;
       end
-      
-      
+
+
       // special SHIFT propagation
       DIFT_PROP_OPCLASS_SHFT:
       begin
@@ -101,12 +101,12 @@ module dift_tag_propagation
           //  => only operand a has to be considered
           else
           begin
-            result_o = operand_a_tag_i;
+            result_o = {DIFT_TAG_SIZE{ |operand_a_tag_i }};
           end
         end
       end
-      
-      
+
+
       // common propagation for normal 2-operand ALU instructions
       DIFT_PROP_OPCLASS_LOG,
       DIFT_PROP_OPCLASS_ADD,
@@ -117,7 +117,7 @@ module dift_tag_propagation
         // select correct policy configuration
         logic temp_policy_en;
         logic temp_policy_mode;
-        
+
         unique case (opclass_i)
           DIFT_PROP_OPCLASS_LOG: begin
             temp_policy_en   = tpcr_i.log.en;
@@ -140,7 +140,7 @@ module dift_tag_propagation
             temp_policy_mode = tpcr_i.fpu.mode;
           end
         endcase
-        
+
         // apply selected policy
         if (~temp_policy_en)
         begin
@@ -151,7 +151,7 @@ module dift_tag_propagation
           // reg-imm instruction
           if (~regb_used_i)
           begin
-            result_o = operand_a_tag_i; // just forward the only register operand (rs1)
+            result_o = {DIFT_TAG_SIZE{ |operand_a_tag_i }}; // just forward the only register operand (rs1)
           end
           // reg-reg instruction
           else
@@ -168,8 +168,8 @@ module dift_tag_propagation
         end //~apply selected policy
 
       end //~common propagation for normal 2-operand ALU instructions
-      
-      
+
+
       // special Xpulp propagation
       // TODO: maybe some special handling is needed here
       DIFT_PROP_OPCLASS_XPLP:
@@ -192,7 +192,7 @@ module dift_tag_propagation
               result_o = {DIFT_TAG_SIZE{ (|operand_a_tag_i) & (|operand_b_tag_i) & (|operand_c_tag_i) }};  // AND combination
             end
           end
-          
+
           // 2-operand-instructions
           else if ((rega_used_i) && (regb_used_i))
           begin
@@ -205,17 +205,17 @@ module dift_tag_propagation
               result_o = {DIFT_TAG_SIZE{ (|operand_a_tag_i) & (|operand_b_tag_i) }};  // AND combination
             end
           end
-          
+
           // 1-operand-instructions
           else
           begin
-            result_o = operand_a_tag_i;
+            result_o = {DIFT_TAG_SIZE{ operand_a_tag_i }};
           end
         end
       end
-    
+
     endcase
-  
+
   end //~always_comb
 
 endmodule

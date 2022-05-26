@@ -401,14 +401,15 @@ module riscv_controller
             halt_id_o         = 1'b1;
             // save different PC depending on opclass that triggered the trap
             unique case (dift_trap_type_i)
-              DIFT_TRAP_TYPE_EXEC:  csr_save_id_o = 1'b1; // TODO dift: are they all correct???
+              DIFT_TRAP_TYPE_EXEC:  csr_save_id_o = 1'b1;
               DIFT_TRAP_TYPE_STOR:  csr_save_ex_o = 1'b1;
               DIFT_TRAP_TYPE_LOAD:  csr_save_ex_o = 1'b1;
               DIFT_TRAP_TYPE_JALR:  csr_save_id_o = 1'b1;
-              DIFT_TRAP_TYPE_BRAN:  csr_save_ex_o = 1'b1;
+              DIFT_TRAP_TYPE_BRAN:  csr_save_id_o = 1'b1;
               default:              csr_save_id_o = 1'b1;
             endcase
-            csr_save_cause_o  = 1'b1;
+            
+            csr_save_cause_o = 1'b1;
             //no jump in this stage as we have to wait one cycle to go to Machine Mode
 
             unique case (dift_trap_type_i)
