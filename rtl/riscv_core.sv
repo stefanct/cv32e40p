@@ -239,6 +239,7 @@ module riscv_core
   // DIFT
 `ifdef DIFT_ACTIVE
   // DIFT tag propagation
+  dift_tpcr_t     dift_tpcr;
   logic           post_increment_instr_ex;
   dift_prop_opclass_t  dift_prop_opclass_ex;
   dift_tag_t      operand_a_tag_ex;
@@ -247,8 +248,6 @@ module riscv_core
   logic           rega_used_ex;
   logic           regb_used_ex;
   logic           regc_used_ex;
-  dift_tpcr_t     dift_tpcr;
-  dift_tag_t      dift_tag_result;
   // DIFT tag manipulation
   logic           dift_en_ex;
   logic [ 2:0]    dift_operator_ex;
@@ -258,11 +257,8 @@ module riscv_core
   dift_tag_t      dift_operand_a_tag_ex;
   dift_tag_t      dift_operand_b_tag_ex;
   dift_tag_t      dift_operand_c_tag_ex;
-  // DIFT tag check additionally needed signals
+  // DIFT tag check
   dift_tccr_t     dift_tccr;
-  dift_check_opclass_t  dift_check_opclass_ex;
-  logic           dift_trap_lsu;
-  dift_trap_t     dift_trap_type_lsu;
 `endif
 
   // Register Write Control
@@ -726,14 +722,13 @@ module riscv_core
 `ifdef DIFT_ACTIVE
     // DIFT tag propagation
     .dift_prop_opclass_ex_o       ( dift_prop_opclass_ex    ),
+    .post_increment_instr_o       ( post_increment_instr_ex ),
     .operand_a_tag_ex_o           ( operand_a_tag_ex        ),
     .operand_b_tag_ex_o           ( operand_b_tag_ex        ),
     .operand_c_tag_ex_o           ( operand_c_tag_ex        ),
     .rega_used_ex_o               ( rega_used_ex            ),
     .regb_used_ex_o               ( regb_used_ex            ),
     .regc_used_ex_o               ( regc_used_ex            ),
-    // DIFT tag propagation additionl needed signals
-    .post_increment_instr_o       ( post_increment_instr_ex ),
     // DIFT tag manipulation
     .dift_en_ex_o                 ( dift_en_ex              ),
     .dift_operator_ex_o           ( dift_operator_ex        ),
@@ -745,9 +740,6 @@ module riscv_core
     .dift_operand_c_tag_ex_o      ( dift_operand_c_tag_ex   ),
     // DIFT tag check
     .dift_tccr_i                  ( dift_tccr               ),
-    .dift_trap_lsu_i              ( dift_trap_lsu           ),
-    .dift_trap_type_lsu_i         ( dift_trap_type_lsu     ),
-    .dift_check_opclass_ex_o      ( dift_check_opclass_ex   ),
 `endif
 
     // CSR ID/EX
@@ -931,7 +923,6 @@ module riscv_core
     .regb_used_i                ( regb_used_ex                 ),
     .regc_used_i                ( regc_used_ex                 ),
     .dift_tpcr_i                ( dift_tpcr                    ),
-    .dift_tag_result_o          ( dift_tag_result              ), // needed as input for LSU (for store operations)
     // Tag Manipulation
     .dift_en_i                  ( dift_en_ex                   ),
     .dift_operator_i            ( dift_operator_ex             ),
@@ -1001,36 +992,6 @@ module riscv_core
     .ex_valid_o                 ( ex_valid                     ),
     .wb_ready_i                 ( lsu_ready_wb                 )
   );
-
-
-
-  ////////////////////////////
-  //       DIFT UNIT        //
-  //  Tag Check - LSU part  //
-  ////////////////////////////
-`ifdef DIFT_ACTIVE
-
-  // Tag Check
-  dift_tag_check_lsu
-  dift_tag_check_lsu_i
-  (
-    .clk                  ( clk                  ),
-    .rst_n                ( rst_n                ),
-
-    // configuration
-    .tccr_i               ( dift_tccr            ),
-    // info about executing instruction (which check logic has to be applied)
-    .opclass_i            ( dift_check_opclass_ex),
-    .is_decoding_i        ( is_decoding          ),
-    // tag bits of operands
-    .operand_a_tag_i      ( operand_a_tag_ex     ),
-    .operand_b_tag_i      ( operand_b_tag_ex     ),
-    .operand_c_tag_i      ( operand_c_tag_ex     ),
-    // output: raising trap
-    .trap_o               ( dift_trap_lsu        ),
-    .trap_type_o          ( dift_trap_type_lsu   )
-  );
-`endif
 
 
 

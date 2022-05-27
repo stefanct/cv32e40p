@@ -127,7 +127,6 @@ module riscv_ex_stage
   input  logic          rega_used_i,
   input  logic          regb_used_i,
   input  logic          regc_used_i,
-  output dift_tag_t     dift_tag_result_o,
   // DIFT Tag Manipulation
   input  logic          dift_en_i,
   input  logic [ 2:0]   dift_operator_i,
