@@ -1593,9 +1593,8 @@ module riscv_id_stage
     // configuration
     .tccr_i               ( dift_tccr_i          ),
     // info about executing instruction (which check logic has to be applied)
-    .opclass_i            ( dift_check_opclass   ),
-    .is_decoding_i        ( is_decoding_o        ),
-    .branch_taken_ex_i    ( branch_taken_ex      ),
+    .opclass_i            ( dift_check_opclass   ), // instruction type
+    .deassert_i           ( deassert_we          ), // ID stage stalled -> do not generate trap
     // tag data for EXEC check
     .instr_rtag_i         ( instr_rtag_i         ),
     // tag data for JALR check

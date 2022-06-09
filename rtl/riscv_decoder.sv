@@ -2673,7 +2673,7 @@ module riscv_decoder
   assign mult_int_en_o     = (deassert_we_i) ? 1'b0          : mult_int_en;
   assign mult_dot_en_o     = (deassert_we_i) ? 1'b0          : mult_dot_en;
 `ifdef DIFT_ACTIVE
-  assign dift_en_o         = (deassert_we_i) ? 1'b0          : dift_en;   // TODO DIFT: not sure if this is needed or not
+  assign dift_en_o         = (deassert_we_i) ? 1'b0          : dift_en;
 `endif
   assign regfile_mem_we_o  = (deassert_we_i) ? 1'b0          : regfile_mem_we;
   assign regfile_alu_we_o  = (deassert_we_i) ? 1'b0          : regfile_alu_we;

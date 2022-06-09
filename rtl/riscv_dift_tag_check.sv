@@ -16,9 +16,8 @@ module dift_tag_check
     // configuration
     input  dift_tccr_t    tccr_i,
     // info about executing instruction (which check logic has to be applied)
-    input  dift_check_opclass_t  opclass_i,   // which basic opclass
-    input  logic          is_decoding_i,      // indicates if the decoded instruction (provided by ID/EX) is actually valid (will be executed)
-    input  logic          branch_taken_ex_i,  // indicates if the decoded instruction (provided by ID/EX) is actually valid (will be executed)
+    input  dift_check_opclass_t  opclass_i, // which basic opclass
+    input  logic          deassert_i,       // indicates if teh ID stage is stalled -> deassert trap signal
     // tag data for EXEC check
     input  dift_tag_t     instr_rtag_i,
     // tag data for JALR check
@@ -155,15 +154,13 @@ module dift_tag_check
   end
 
 
-  // Deassert selected trap signal to generate internal trap signal
-  //   if a branch is taken in ex stage the currently decoded instruction will NOT be executed
-  //   if is_decoding is low, whatever we decoded is garbage (e.g. because of interrupts, mem traps, ...)
+  // Deassert the generation of internal trap signal if the ID stage is stalled
   logic trap_int;
   dift_trap_t trap_type_int;
 
   always_comb
   begin
-    if ((branch_taken_ex_i) | (~is_decoding_i))
+    if (deassert_i)
     begin
       trap_int      = '0;
       trap_type_int = '0;
