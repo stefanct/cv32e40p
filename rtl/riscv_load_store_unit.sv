@@ -541,6 +541,7 @@ module riscv_load_store_unit
     // output to register file
     if (DIFT_TAG_SIZE == 4) begin
       case(data_type_ex_i)
+        2'b11,  // reserved
         2'b00:  // word
         begin
           dift_load_tag_result_type = dift_load_tag_result;

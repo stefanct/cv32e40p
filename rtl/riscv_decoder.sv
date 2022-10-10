@@ -273,7 +273,7 @@ module riscv_decoder
           3'b001, // SLLI
           3'b101: // SRLI / SRAI
             dift_prop_opclass_o = DIFT_PROP_OPCLASS_SHFT;
-          //default:  dift_opclass_o = DIFT_OPCLASS_OTHER;
+          default:  dift_prop_opclass_o = DIFT_PROP_OPCLASS_NONE;
         endcase
       end
         
@@ -297,7 +297,7 @@ module riscv_decoder
             3'b001, // SLL
             3'b101: // SRL
               dift_prop_opclass_o = DIFT_PROP_OPCLASS_SHFT;
-            //default:  dift_opclass_o = DIFT_OPCLASS_OTHER;
+          default:  dift_prop_opclass_o = DIFT_PROP_OPCLASS_NONE;
           endcase
         end
         // RV32I OP
@@ -308,7 +308,7 @@ module riscv_decoder
               dift_prop_opclass_o = DIFT_PROP_OPCLASS_ADD;
             3'b101: // SRA
               dift_prop_opclass_o = DIFT_PROP_OPCLASS_SHFT;
-            //default:  dift_opclass_o = DIFT_OPCLASS_OTHER;
+          default:  dift_prop_opclass_o = DIFT_PROP_OPCLASS_NONE;
           endcase
         end
         // PULP sepcific instructions
